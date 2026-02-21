@@ -1,4 +1,4 @@
-lucide.createIcons();
+    lucide.createIcons();
 
             // View Management
             const heroSection = document.getElementById('hero-section');
@@ -442,6 +442,9 @@ function loginAdmin(event) {
             // State
             let currentQuestion = 0;
             let answers = new Array(10).fill(null);
+            
+            // API Key - In production, use environment variables or backend proxy
+            const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
             // DOM Elements
             const questionText = document.getElementById('question-text');
@@ -590,16 +593,16 @@ function loginAdmin(event) {
             }
 
             async function getAIAnalysis() {
-    // Prepare the assessment data
-    const assessmentData = questions.map((q, index) => ({
-        question: q.text,
-        category: q.category,
-        answer: responseLabels[answers[index]],
-        score: answers[index],
-        reverse: q.reverse || false
-    }));
+                // Prepare the assessment data
+                const assessmentData = questions.map((q, index) => ({
+                    question: q.text,
+                    category: q.category,
+                    answer: responseLabels[answers[index]],
+                    score: answers[index],
+                    reverse: q.reverse || false
+                }));
 
-    const prompt = `
+                const prompt = `
 You are a compassionate mental health wellness assistant analyzing a student's questionnaire responses.
 
 ASSESSMENT DATA:
@@ -681,22 +684,36 @@ Short encouragement sentence.
 
 Now generate the result based on the provided emotional indicators.`;
 
-    // CALL YOUR BACKEND instead of GROQ directly
-    const response = await fetch("/api/groq", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ message: prompt }) // send prompt to backend
-    });
+                const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${GROQ_API_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: "llama-3.3-70b-versatile",
+                        messages: [
+                            {
+                                role: "system",
+                                content: "You are a supportive mental health wellness assistant for students. Provide empathetic, practical guidance based on questionnaire responses. Never diagnose, always encourage professional help for serious concerns."
+                            },
+                            {
+                                role: "user",
+                                content: prompt
+                            }
+                        ],
+                        temperature: 0.7,
+                        max_tokens: 1500
+                    })
+                });
 
-    if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-    }
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status}`);
+                }
 
-    const data = await response.json();
-    return data.choices[0].message.content; // backend returns GROQ response
-}
+                const data = await response.json();
+                return data.choices[0].message.content;
+            }
 
             function displayResults(aiText) {
                 loadingSection.classList.remove('visible-section');
@@ -757,20 +774,3 @@ Now generate the result based on the provided emotional indicators.`;
                     }
                 }
             });
-
-            function loadChatWidget() {
-                // Prevent loading twice
-                if (document.getElementById("leadconnector-widget")) return;
-
-                const script = document.createElement("script");
-                script.id = "leadconnector-widget";
-                script.src = "https://widgets.leadconnectorhq.com/loader.js";
-                script.setAttribute(
-                    "data-resources-url",
-                    "https://widgets.leadconnectorhq.com/chat-widget/loader.js"
-                );
-                script.setAttribute("data-widget-id", "69913f5da0e96a88091fcd46");
-                script.async = true;
-
-                document.body.appendChild(script);
-            }
