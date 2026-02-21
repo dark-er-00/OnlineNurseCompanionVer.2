@@ -1,16 +1,23 @@
 {
   "name": "onlinenursecompanionver.2",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "UniWell - Your Online Nurse Companion",
+  "main": "api/index.js",
   "scripts": {
+    "start": "node api/index.js",
+    "dev": "nodemon api/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["health", "nurse", "companion", "mental-health", "first-aid"],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "dotenv": "^17.3.1",
-    "mongoose": "^9.2.1"
+    "mongoose": "^9.2.1",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   }
 }

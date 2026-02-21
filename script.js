@@ -1,4 +1,4 @@
-    lucide.createIcons();
+lucide.createIcons();
 
             // View Management
             const heroSection = document.getElementById('hero-section');
@@ -96,14 +96,328 @@ function loginAdmin(event) {
         msg.innerText = "Login successful!";
         setTimeout(() => {
             closeLogin();
-            alert("Welcome Admin!");
+            openAdminDashboard();
         }, 1000);
     } else {
         msg.style.color = "red";
         msg.innerText = "Invalid username or password";
     }
 }
+
+// ADMIN DASHBOARD FUNCTIONS
+function openAdminDashboard() {
+    // Hide Hero
+    heroSection.style.display = 'none';
+    
+    // Show Container
+    interactiveContainer.classList.remove('hidden');
+    
+    // Hide all modes first
+    document.querySelectorAll('[id^="mode-"]').forEach(el => {
+        el.classList.add('hidden');
+        el.classList.remove('active');
+    });
+
+    // Show admin dashboard
+    const adminMode = document.getElementById('mode-admin');
+    if(adminMode) {
+        adminMode.classList.remove('hidden');
+        void adminMode.offsetWidth; 
+        adminMode.classList.add('active');
+    }
+
+    // Load data
+    loadAdminStats();
+    loadCases();
+
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function logoutAdmin() {
+    if (confirm('Are you sure you want to logout?')) {
+        resetView();
+    }
+}
+
+async function loadAdminStats() {
+    try {
+        const response = await fetch('/api/admin/stats');
+        const stats = await response.json();
+        
+        document.getElementById('total-cases').textContent = stats.totalCases;
+        document.getElementById('urgent-cases').textContent = stats.urgentCases;
+        document.getElementById('resolved-cases').textContent = stats.closedCases;
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+async function loadCases() {
+    try {
+        const statusFilter = document.getElementById('status-filter').value;
+        const urgencyFilter = document.getElementById('urgency-filter').value;
+        
+        let url = '/api/admin/cases';
+        const params = new URLSearchParams();
+        if (statusFilter) params.append('status', statusFilter);
+        if (urgencyFilter) params.append('urgency', urgencyFilter);
+        if (params.toString()) url += `?${params.toString()}`;
+        
+        const response = await fetch(url);
+        const cases = await response.json();
+        renderCases(cases);
+    } catch (error) {
+        console.error('Error loading cases:', error);
+    }
+}
+
+function renderCases(cases) {
+    const tbody = document.getElementById('cases-table-body');
+    tbody.innerHTML = '';
+    
+    if (cases.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">No cases found</td></tr>';
+        return;
+    }
+    
+    cases.forEach(caseItem => {
+        const row = tbody.insertRow();
+        row.className = 'hover:bg-slate-50 transition-colors';
+        
+        // Date
+        const dateCell = row.insertCell();
+        dateCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-slate-600';
+        dateCell.textContent = new Date(caseItem.createdAt).toLocaleDateString();
+        
+        // Student
+        const studentCell = row.insertCell();
+        studentCell.className = 'px-6 py-4 whitespace-nowrap';
+        studentCell.innerHTML = `
+            <div class="text-sm font-medium text-slate-900">${caseItem.studentName}</div>
+            <div class="text-sm text-slate-500">${caseItem.email}</div>
+        `;
+        
+        // Course
+        const courseCell = row.insertCell();
+        courseCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-slate-600';
+        courseCell.textContent = caseItem.course;
+        
+        // Symptoms
+        const symptomsCell = row.insertCell();
+        symptomsCell.className = 'px-6 py-4 text-sm text-slate-600';
+        symptomsCell.textContent = caseItem.symptoms;
+        
+        // Urgency
+        const urgencyCell = row.insertCell();
+        urgencyCell.className = 'px-6 py-4 whitespace-nowrap';
+        const urgencyClass = caseItem.urgencyLevel === 'URGENT' ? 'bg-red-100 text-red-600' : 
+                           caseItem.urgencyLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-600' : 'bg-green-100 text-green-600';
+        urgencyCell.innerHTML = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${urgencyClass}">${caseItem.urgencyLevel}</span>`;
+        
+        // Status
+        const statusCell = row.insertCell();
+        statusCell.className = 'px-6 py-4 whitespace-nowrap';
+        const statusClass = caseItem.status === 'resolved' ? 'bg-green-100 text-green-600' : 
+                          caseItem.status === 'in-progress' ? 'bg-blue-100 text-blue-600' : 'bg-yellow-100 text-yellow-600';
+        statusCell.innerHTML = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">${caseItem.status || 'pending'}</span>`;
+        
+        // Actions
+        const actionsCell = row.insertCell();
+        actionsCell.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium';
+        actionsCell.innerHTML = `
+            <div class="flex gap-2">
+                <button onclick="viewCase('${caseItem._id}')" class="text-indigo-600 hover:text-indigo-900">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button onclick="updateCaseStatus('${caseItem._id}', 'resolved')" class="text-green-600 hover:text-green-900">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button onclick="deleteCase('${caseItem._id}')" class="text-red-600 hover:text-red-900">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+    });
+}
+
+async function updateCaseStatus(caseId, status) {
+    try {
+        const response = await fetch(`/api/admin/cases/${caseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        
+        if (response.ok) {
+            loadCases();
+            loadAdminStats();
+        }
+    } catch (error) {
+        console.error('Error updating case:', error);
+    }
+}
+
+async function deleteCase(caseId) {
+    if (!confirm('Are you sure you want to delete this case?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/admin/cases/${caseId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            loadCases();
+            loadAdminStats();
+        }
+    } catch (error) {
+        console.error('Error deleting case:', error);
+    }
+}
+
+async function viewCase(caseId) {
+    try {
+        const response = await fetch(`/api/admin/cases/${caseId}`);
+        const caseItem = await response.json();
+        alert(`Case Details:\n\nStudent: ${caseItem.studentName}\nEmail: ${caseItem.email}\nCourse: ${caseItem.course}\nSymptoms: ${caseItem.symptoms}\nDuration: ${caseItem.duration}\nPain Level: ${caseItem.painLevel}/10\nUrgency: ${caseItem.urgencyLevel}\nStatus: ${caseItem.status}`);
+    } catch (error) {
+        console.error('Error viewing case:', error);
+    }
+}
+
+// Filter handlers
+document.getElementById('status-filter')?.addEventListener('change', loadCases);
+document.getElementById('urgency-filter')?.addEventListener('change', loadCases);
             
+            // First Aid Data
+            const firstAidData = [
+                {
+                    id: 1,
+                    title: "Emergency Contacts",
+                    icon: "ambulance",
+                    description: "Important phone numbers and emergency procedures",
+                    details: {
+                        overview: "In case of emergency, it's crucial to know who to call and what to do.",
+                        steps: [
+                            "Call your local emergency number immediately",
+                            "Stay calm and provide clear information about the situation",
+                            "Follow the instructions of emergency responders",
+                            "If you're trained, provide first aid while waiting for help"
+                        ],
+                        tips: [
+                            "Keep emergency numbers saved in your phone",
+                            "Know the location of nearest emergency services",
+                            "Have a first aid kit readily available"
+                        ]
+                    }
+                },
+                {
+                    id: 2,
+                    title: "Wound Care",
+                    icon: "bandage",
+                    description: "How to clean and dress minor cuts and scrapes",
+                    details: {
+                        overview: "Proper wound care helps prevent infection and promotes healing.",
+                        steps: [
+                            "Wash your hands thoroughly with soap and water",
+                            "Apply gentle pressure with clean cloth to stop bleeding",
+                            "Rinse the wound with clean water to remove debris",
+                            "Clean the area with mild soap and pat dry",
+                            "Apply antibiotic ointment to prevent infection",
+                            "Cover with sterile bandage or dressing"
+                        ],
+                        tips: [
+                            "Change bandage daily or when wet/dirty",
+                            "Watch for signs of infection (redness, swelling, pus, fever)",
+                            "Seek medical help for deep or contaminated wounds"
+                        ]
+                    }
+                },
+                {
+                    id: 3,
+                    title: "Burns & Scalds",
+                    icon: "ice-cream",
+                    description: "Immediate care for minor burns and scalds",
+                    details: {
+                        overview: "Quick action can minimize damage from burns and scalds.",
+                        steps: [
+                            "Cool the burn with cool (not cold) running water for 10-15 minutes",
+                            "Remove tight clothing or jewelry near the burn",
+                            "Cover the burn with sterile, non-stick bandage",
+                            "Take over-the-counter pain relievers if needed"
+                        ],
+                        tips: [
+                            "Do not apply ice, butter, or ointments to severe burns",
+                            "Seek medical help for burns larger than 3 inches in diameter",
+                            "Watch for signs of infection or difficulty breathing"
+                        ]
+                    }
+                },
+                {
+                    id: 4,
+                    title: "Eye Injuries",
+                    icon: "headphones",
+                    description: "How to handle minor eye irritations and injuries",
+                    details: {
+                        overview: "Eye injuries require careful handling to avoid further damage.",
+                        steps: [
+                            "Do not rub the eye",
+                            "For foreign objects: Flush with clean water",
+                            "For chemical splashes: Flush eye with water for at least 15 minutes",
+                            "Cover the eye with sterile bandage if needed"
+                        ],
+                        tips: [
+                            "Seek immediate medical help for severe eye injuries",
+                            "Do not attempt to remove embedded objects",
+                            "Wear protective eyewear when working with tools or chemicals"
+                        ]
+                    }
+                },
+                {
+                    id: 5,
+                    title: "CPR & AED",
+                    icon: "heart-pulse",
+                    description: "Basic life support techniques and AED usage",
+                    details: {
+                        overview: "CPR and AED can save lives in cardiac emergencies.",
+                        steps: [
+                            "Check the scene for safety",
+                            "Check if the person is responsive",
+                            "Call emergency services immediately",
+                            "Start chest compressions (30 compressions at 100-120 per minute)",
+                            "Use AED if available and follow voice instructions"
+                        ],
+                        tips: [
+                            "Take a CPR and first aid course",
+                            "AEDs are easy to use even without training",
+                            "Continue CPR until help arrives or person responds"
+                        ]
+                    }
+                },
+                {
+                    id: 6,
+                    title: "Choking",
+                    icon: "shield",
+                    description: "First aid for choking and airway obstruction",
+                    details: {
+                        overview: "Choking is a life-threatening emergency that requires immediate action.",
+                        steps: [
+                            "Ask 'Are you choking?' and look for signs of distress",
+                            "For adults/children over 1 year: Perform abdominal thrusts (Heimlich maneuver)",
+                            "For infants: Give 5 back blows followed by 5 chest thrusts",
+                            "If person becomes unresponsive, start CPR"
+                        ],
+                        tips: [
+                            "Learn choking first aid techniques for different age groups",
+                            "Be cautious with small objects around young children",
+                            "Seek medical help even if choking is resolved"
+                        ]
+                    }
+                }
+            ];
+
             //FAQ SECTION
             const faqData = [
             {
@@ -408,6 +722,95 @@ function loginAdmin(event) {
             document.body.style.overflow = '';
         }
 
+        // First Aid Modal Functions
+        function openFirstAidModal(title) {
+            const firstAidItem = firstAidData.find(item => item.title === title);
+            if (!firstAidItem) return;
+
+            const modal = document.getElementById('firstaid-modal');
+            const modalContent = document.getElementById('firstaid-modal-content');
+
+            modalContent.innerHTML = `
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                        <i data-lucide="${firstAidItem.icon}" class="w-8 h-8"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-2">${firstAidItem.title}</h2>
+                    <p class="text-slate-500">${firstAidItem.description}</p>
+                </div>
+
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-slate-800 mb-4">Overview</h3>
+                    <p class="text-slate-600 leading-relaxed">${firstAidItem.details.overview}</p>
+                </div>
+
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-slate-800 mb-4">Steps to Follow</h3>
+                    <ol class="space-y-3">
+                        ${firstAidItem.details.steps.map((step, index) => `
+                            <li class="flex items-start gap-3">
+                                <div class="w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">
+                                    ${index + 1}
+                                </div>
+                                <span class="text-slate-600 leading-relaxed">${step}</span>
+                            </li>
+                        `).join('')}
+                    </ol>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold text-slate-800 mb-4">Important Tips</h3>
+                    <ul class="space-y-2">
+                        ${firstAidItem.details.tips.map(tip => `
+                            <li class="flex items-start gap-3">
+                                <i class="fas fa-check-circle text-emerald-600 mt-1 flex-shrink-0"></i>
+                                <span class="text-slate-600 leading-relaxed">${tip}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+
+                <div class="mt-8 pt-6 border-t border-slate-100">
+                    <p class="text-sm text-slate-500 text-center">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        This information is for educational purposes only. Always seek professional medical help in emergencies.
+                    </p>
+                </div>
+            `;
+
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            lucide.createIcons(); // Recreate icons in modal
+        }
+
+        function closeFirstAidModal() {
+            const modal = document.getElementById('firstaid-modal');
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+
+        // Close modal on outside click and Escape key
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.getElementById('firstaid-modal');
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeFirstAidModal();
+                    }
+                });
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('firstaid-modal');
+                if (modal && modal.style.display === 'flex') {
+                    closeFirstAidModal();
+                }
+            }
+        });
+
         // Close modal on outside click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
@@ -443,8 +846,9 @@ function loginAdmin(event) {
             let currentQuestion = 0;
             let answers = new Array(10).fill(null);
             
-            // API Key - In production, use environment variables or backend proxy
-            const GROQ_API_KEY = process.env.GROQ_API_KEY;
+            // API Key - In production, use backend proxy (this is for demonstration only)
+            // Note: Never expose API keys directly in frontend code
+            const GROQ_API_KEY = '';
 
             // DOM Elements
             const questionText = document.getElementById('question-text');
@@ -684,26 +1088,13 @@ Short encouragement sentence.
 
 Now generate the result based on the provided emotional indicators.`;
 
-                const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                const response = await fetch("/api/groq", {
                     method: "POST",
                     headers: {
-                        "Authorization": `Bearer ${GROQ_API_KEY}`,
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        model: "llama-3.3-70b-versatile",
-                        messages: [
-                            {
-                                role: "system",
-                                content: "You are a supportive mental health wellness assistant for students. Provide empathetic, practical guidance based on questionnaire responses. Never diagnose, always encourage professional help for serious concerns."
-                            },
-                            {
-                                role: "user",
-                                content: prompt
-                            }
-                        ],
-                        temperature: 0.7,
-                        max_tokens: 1500
+                        message: prompt
                     })
                 });
 
@@ -774,3 +1165,20 @@ Now generate the result based on the provided emotional indicators.`;
                     }
                 }
             });
+
+            function loadChatWidget() {
+                // Prevent loading twice
+                if (document.getElementById("leadconnector-widget")) return;
+
+                const script = document.createElement("script");
+                script.id = "leadconnector-widget";
+                script.src = "https://widgets.leadconnectorhq.com/loader.js";
+                script.setAttribute(
+                    "data-resources-url",
+                    "https://widgets.leadconnectorhq.com/chat-widget/loader.js"
+                );
+                script.setAttribute("data-widget-id", "69913f5da0e96a88091fcd46");
+                script.async = true;
+
+                document.body.appendChild(script);
+            }

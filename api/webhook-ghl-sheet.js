@@ -1,33 +1,4 @@
-import mongoose from "mongoose";
-
-let isConnected = false;
-
-async function connectDB() {
-  if (isConnected) return;
-  
-  await mongoose.connect(process.env.MONGO_URI);
-  isConnected = true;
-}
-
-const caseSchema = new mongoose.Schema({
-  dateTime: String,
-  studentName: String,
-  course: String,
-  email: String,
-  symptoms: String,
-  duration: String,
-  painLevel: Number,
-  dangerFlag: Boolean,
-  canAttendClass: Boolean,
-  status: String,
-  urgencyLevel: String,
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-});
-
-const Case = mongoose.models.Case || mongoose.model("Case", caseSchema);
+const { connectDB, Case } = require("./models/case");
 
 function computeUrgency({ painLevel, dangerFlag, canAttendClass }) {
   if (dangerFlag === true) return "URGENT";
@@ -37,7 +8,7 @@ function computeUrgency({ painLevel, dangerFlag, canAttendClass }) {
   return "LOW";
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
