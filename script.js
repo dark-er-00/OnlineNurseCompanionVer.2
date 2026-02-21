@@ -30,6 +30,19 @@ function showNotification(message, type = 'info') {
 
             
             function openMode(mode) {
+                // Check if mental health assessment was already completed (one-time form)
+                if (mode === 'mental') {
+                    const isCompleted = localStorage.getItem('mentalHealthCheckCompleted');
+                    if (isCompleted) {
+                        const lastDate = localStorage.getItem('mentalHealthCheckDate');
+                        const dateStr = lastDate ? new Date(lastDate).toLocaleDateString() : 'before';
+                        const proceed = confirm('You have already completed a mental health check on ' + dateStr + '. Do you want to take it again?');
+                        if (!proceed) {
+                            return; // Don't open the mode
+                        }
+                    }
+                }
+                
                 // Hide Hero
                 heroSection.style.display = 'none';
                 
@@ -1171,6 +1184,18 @@ Now generate the result based on the provided emotional indicators.`;
                     .replace(/\n\n/g, '<br><br>');
 
                 aiResultContent.innerHTML = formattedHtml;
+                
+                // Save completion to localStorage for one-time form
+                localStorage.setItem('mentalHealthCheckCompleted', 'true');
+                localStorage.setItem('mentalHealthCheckDate', new Date().toISOString());
+                
+                // Show notification with result summary
+                const resultTitle = aiText.split('\n')[0];
+                showNotification('Your mental health check is complete! Result: ' + resultTitle, 'success');
+                
+                // Show the result notification modal
+                showResultNotification(aiText);
+                
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
 
@@ -1185,6 +1210,10 @@ Now generate the result based on the provided emotional indicators.`;
             
                 renderQuestion();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // Clear the completion status to allow retaking
+                localStorage.removeItem('mentalHealthCheckCompleted');
+                localStorage.removeItem('mentalHealthCheckDate');
             }
 
             function downloadReport() {
@@ -1196,6 +1225,36 @@ Now generate the result based on the provided emotional indicators.`;
                 a.download = 'wellness-report.txt';
                 a.click();
                 URL.revokeObjectURL(url);
+            }
+            
+            // Result Notification Modal Functions
+            function showResultNotification(aiText) {
+                const modal = document.getElementById('result-notification-modal');
+                const summaryDiv = document.getElementById('result-summary');
+                
+                // Extract key info from the AI response
+                const lines = aiText.split('\n').filter(function(line) { return line.trim(); });
+                const title = lines[0] || 'Your Wellness Report';
+                
+                // Create a summary from the response
+                let summaryHtml = '<h4 class="font-bold text-violet-800 mb-2">' + title + '</h4>';
+                
+                // Add a brief description
+                if (lines[1]) {
+                    summaryHtml += '<p class="text-sm text-violet-600">' + lines[1] + '</p>';
+                }
+                
+                summaryDiv.innerHTML = summaryHtml;
+                
+                // Show modal
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+            
+            function closeResultNotification() {
+                const modal = document.getElementById('result-notification-modal');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
             }
 
             // Keyboard navigation
