@@ -779,19 +779,19 @@ Now generate the result based on the provided emotional indicators.`;
                 }
             });
 
-            function loadWidget() {
-    // Prevent loading twice
-    if (document.getElementById("leadconnector-widget")) return;
+            function loadChatWidget() {
+                // Prevent loading twice
+                if (document.getElementById("leadconnector-widget")) return;
 
-    const script = document.createElement("script");
-    script.id = "leadconnector-widget";
-    script.src = "https://widgets.leadconnectorhq.com/loader.js";
-    script.setAttribute(
-        "data-resources-url",
-        "https://widgets.leadconnectorhq.com/chat-widget/loader.js"
-    );
-    script.setAttribute("data-widget-id", "69913f5da0e96a88091fcd46");
-    script.async = true;
+                const script = document.createElement("script");
+                script.id = "leadconnector-widget";
+                script.src = "https://widgets.leadconnectorhq.com/loader.js";
+                script.setAttribute(
+                    "data-resources-url",
+                    "https://widgets.leadconnectorhq.com/chat-widget/loader.js"
+                );
+                script.setAttribute("data-widget-id", "69913f5da0e96a88091fcd46");
+                script.async = true;
 
-    document.body.appendChild(script);
-}
+                document.body.appendChild(script);
+            }
