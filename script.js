@@ -1,192 +1,303 @@
 // Initialize Lucide icons
 lucide.createIcons();
 
-// ============================================
-// MENTAL HEALTH CHECK - NEW VERSION
-// ============================================
-var selectedMood = 0;
-var selectedSleep = 0;
+function loadChatWidget() {
+    // Prevent loading multiple times
+    if (document.getElementById("leadconnector-widget")) {
+        showArrowNotification("Chat bot is ready to use!");
+        return;
+    }
 
-function selectMood(value) {
-    selectedMood = value;
-    document.getElementById('selected-mood').value = value;
+    const script = document.createElement("script");
+    script.id = "leadconnector-widget";
+    script.src = "https://widgets.leadconnectorhq.com/loader.js";
+    script.setAttribute(
+        "data-resources-url",
+        "https://widgets.leadconnectorhq.com/chat-widget/loader.js"
+    );
+    script.setAttribute("data-widget-id", "69913f5da0e96a88091fcd46");
+    script.async = true;
+
+    document.body.appendChild(script);
+
+    showArrowNotification("Chat bot is ready to use!");
+}
+
+// Notification with arrow pointing to bottom-right
+function showArrowNotification(message) {
+    const notif = document.createElement("div");
+    notif.className = `
+        fixed bottom-20 right-5 z-50
+        flex items-center space-x-2
+        bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg
+        animate-fade-in
+    `;
+
+    // Arrow element
+    const arrow = document.createElement("div");
+    arrow.className = `
+        w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent
+        border-t-4 border-t-white
+        animate-bounce
+        self-end
+    `;
+
+    // Message
+    const text = document.createElement("span");
+    text.innerText = message;
+
+    notif.appendChild(text);
+    notif.appendChild(arrow);
+    document.body.appendChild(notif);
+
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notif.remove();
+    }, 3000);
+}
+// ============================================
+// MENTAL HEALTH CHECK - SIMPLE QUESTIONNAIRE
+// ============================================
+
+// Questions for mental health assessment
+var mentalQuestions = [
+    { id: 1, text: "I feel overwhelmed by my academic workload", category: "stress" },
+    { id: 2, text: "I find it hard to relax or unwind", category: "relaxation" },
+    { id: 3, text: "I feel tired even after a full night's sleep", category: "fatigue" },
+    { id: 4, text: "I worry about many things constantly", category: "anxiety" },
+    { id: 5, text: "I have trouble concentrating on my tasks", category: "focus" },
+    { id: 6, text: "I feel nervous or anxious without clear reason", category: "anxiety" },
+    { id: 7, text: "I feel sad or down most of the time", category: "mood" },
+    { id: 8, text: "I have lost interest in activities I once enjoyed", category: "motivation" },
+    { id: 9, text: "I feel confident I can handle my problems", category: "confidence", reverse: true },
+    { id: 10, text: "I feel supported by friends or family", category: "support", reverse: true }
+];
+
+// Answer labels
+var answerLabels = ["Never", "Rarely", "Sometimes", "Often", "Always"];
+
+// State
+var currentMentalQuestion = 0;
+var mentalAnswers = new Array(10).fill(null);
+
+// ============================================
+// MENTAL HEALTH FUNCTIONS
+// ============================================
+
+function initMentalCheck() {
+    currentMentalQuestion = 0;
+    mentalAnswers = new Array(10).fill(null);
     
-    var buttons = document.querySelectorAll('.mood-btn');
+    // Show questionnaire, hide others
+    document.getElementById('mental-questionnaire').classList.remove('hidden-section');
+    document.getElementById('mental-questionnaire').classList.add('visible-section');
+    document.getElementById('mental-loading').classList.remove('visible-section');
+    document.getElementById('mental-loading').classList.add('hidden-section');
+    document.getElementById('mental-results').classList.remove('visible-section');
+    document.getElementById('mental-results').classList.add('hidden-section');
+    
+    // Update total questions display
+    document.getElementById('mental-total-num').textContent = mentalQuestions.length;
+    
+    // Render first question
+    renderMentalQuestion();
+    updateMentalButtons();
+}
+
+function renderMentalQuestion() {
+    var q = mentalQuestions[currentMentalQuestion];
+    document.getElementById('mental-question-text').textContent = q.text;
+    document.getElementById('mental-current-num').textContent = currentMentalQuestion + 1;
+    
+    // Update progress
+    var progress = ((currentMentalQuestion + 1) / mentalQuestions.length) * 100;
+    document.getElementById('mental-progress-bar').style.width = progress + '%';
+    document.getElementById('mental-progress').textContent = Math.round(progress) + '%';
+    
+    // Clear previous selection
+    var buttons = document.querySelectorAll('.mental-option-btn');
     for (var i = 0; i < buttons.length; i++) {
         buttons[i].classList.remove('selected', 'border-violet-500', 'bg-violet-50');
     }
-    document.querySelector('.mood-btn.mood-' + value).classList.add('selected', 'border-violet-500', 'bg-violet-50');
+    
+    // Highlight selected answer if any
+    if (mentalAnswers[currentMentalQuestion] !== null) {
+        buttons[mentalAnswers[currentMentalQuestion]].classList.add('selected', 'border-violet-500', 'bg-violet-50');
+    }
 }
 
-function selectSleep(value) {
-    selectedSleep = value;
-    document.getElementById('selected-sleep').value = value;
+function answerMentalQuestion(value) {
+    mentalAnswers[currentMentalQuestion] = value;
     
-    var buttons = document.querySelectorAll('.sleep-btn');
+    // Update visual selection
+    var buttons = document.querySelectorAll('.mental-option-btn');
     for (var i = 0; i < buttons.length; i++) {
         buttons[i].classList.remove('selected', 'border-violet-500', 'bg-violet-50');
     }
-    document.querySelector('.sleep-btn.sleep-' + value).classList.add('selected', 'border-violet-500', 'bg-violet-50');
+    buttons[value].classList.add('selected', 'border-violet-500', 'bg-violet-50');
+    
+    updateMentalButtons();
 }
 
-// Initialize stress slider
-document.addEventListener('DOMContentLoaded', function() {
-    var stressSlider = document.getElementById('stress-slider');
-    if (stressSlider) {
-        stressSlider.addEventListener('input', function() {
-            document.getElementById('stress-value').textContent = this.value;
-        });
+function updateMentalButtons() {
+    var prevBtn = document.getElementById('mental-prev-btn');
+    var nextBtn = document.getElementById('mental-next-btn');
+    var submitBtn = document.getElementById('mental-submit-btn');
+    var hasAnswer = mentalAnswers[currentMentalQuestion] !== null;
+    var isLast = currentMentalQuestion === mentalQuestions.length - 1;
+    
+    // Previous button
+    if (currentMentalQuestion === 0) {
+        prevBtn.disabled = true;
+        prevBtn.classList.add('cursor-not-allowed', 'text-slate-400');
+        prevBtn.classList.remove('text-slate-600');
+    } else {
+        prevBtn.disabled = false;
+        prevBtn.classList.remove('cursor-not-allowed', 'text-slate-400');
+        prevBtn.classList.add('text-slate-600');
     }
-});
+    
+    // Next/Submit buttons
+    if (isLast) {
+        nextBtn.classList.add('hidden');
+        submitBtn.classList.remove('hidden');
+        if (hasAnswer) {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+    } else {
+        nextBtn.classList.remove('hidden');
+        submitBtn.classList.add('hidden');
+        if (hasAnswer) {
+            nextBtn.disabled = false;
+            nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        } else {
+            nextBtn.disabled = true;
+            nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+    }
+}
 
-async function submitMentalHealthCheck() {
-    if (selectedMood === 0) {
-        showNotification('Please select your mood', 'error');
+function prevMentalQuestion() {
+    if (currentMentalQuestion > 0) {
+        currentMentalQuestion--;
+        renderMentalQuestion();
+        updateMentalButtons();
+    }
+}
+
+function nextMentalQuestion() {
+    if (currentMentalQuestion < mentalQuestions.length - 1 && mentalAnswers[currentMentalQuestion] !== null) {
+        currentMentalQuestion++;
+        renderMentalQuestion();
+        updateMentalButtons();
+    }
+}
+
+function submitMentalCheck() {
+    if (mentalAnswers[currentMentalQuestion] === null) {
+        showNotification('Please answer the current question', 'error');
         return;
     }
     
-    if (selectedSleep === 0) {
-        showNotification('Please select your sleep quality', 'error');
-        return;
-    }
+    // Show loading
+    document.getElementById('mental-questionnaire').classList.remove('visible-section');
+    document.getElementById('mental-questionnaire').classList.add('hidden-section');
+    document.getElementById('mental-loading').classList.remove('hidden-section');
+    document.getElementById('mental-loading').classList.add('visible-section');
     
-    var stressLevel = document.getElementById('stress-slider').value;
-    var notes = document.getElementById('mental-notes').value;
-    
-    document.getElementById('mood-section').classList.remove('visible-section');
-    document.getElementById('mood-section').classList.add('hidden-section');
-    document.getElementById('mental-loading-section').classList.remove('hidden-section');
-    document.getElementById('mental-loading-section').classList.add('visible-section');
-    
-    try {
-        var result = await getMentalHealthAnalysis(selectedMood, stressLevel, selectedSleep, notes);
-        displayMentalHealthResult(result, selectedMood);
-    } catch (error) {
-        console.error('Error:', error);
-        showNotification('Something went wrong. Please try again.', 'error');
-        document.getElementById('mood-section').classList.remove('hidden-section');
-        document.getElementById('mood-section').classList.add('visible-section');
-        document.getElementById('mental-loading-section').classList.remove('visible-section');
-        document.getElementById('mental-loading-section').classList.add('hidden-section');
-    }
+    // Calculate results after brief delay
+    setTimeout(function() {
+        calculateMentalResults();
+    }, 500);
 }
 
-async function getMentalHealthAnalysis(mood, stress, sleep, notes) {
-    var moodLabels = ['', 'Very Low', 'Low', 'Neutral', 'Good', 'Great'];
-    var sleepLabels = ['', 'Very Poor', 'Poor', 'Average', 'Good', 'Excellent'];
-    
-    var prompt = 'You are a compassionate mental health wellness assistant for university students. ' +
-        'USER MOOD: ' + moodLabels[mood] + ' (1=Very Low, 5=Great). ' +
-        'STRESS LEVEL: ' + stress + '/10. ' +
-        'SLEEP QUALITY: ' + sleepLabels[sleep] + '. ' +
-        'ADDITIONAL NOTES: ' + (notes || 'None') + '. ' +
-        'Provide a supportive wellness summary with: 1) A title, 2) A short paragraph, 3) What this means (3 bullet points), 4) Gentle suggestions (2 bullet points), 5) One encouragement sentence. Keep it simple, no emojis, no clinical language.';
-    
-    var response = await fetch('/api/groq', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: prompt })
-    });
-
-    if (!response.ok) {
-        throw new Error('API Error: ' + response.status);
-    }
-
-    var data = await response.json();
-    return data.choices[0].message.content;
-}
-
-function displayMentalHealthResult(aiText, mood) {
-    var loadingSection = document.getElementById('mental-loading-section');
-    var resultsSection = document.getElementById('mental-results-section');
-    var resultContent = document.getElementById('mental-result-content');
-    var resultEmoji = document.getElementById('result-emoji');
-    
-    loadingSection.classList.remove('visible-section');
-    loadingSection.classList.add('hidden-section');
-    resultsSection.classList.remove('hidden-section');
-    resultsSection.classList.add('visible-section');
-    
-    var emojis = ['', '😢', '😔', '😐', '🙂', '😄'];
-    resultEmoji.textContent = emojis[mood];
-    
-    // Simple text formatting
-    var lines = aiText.split('\n');
-    var formattedHtml = '';
-    var inList = false;
-    
-    for (var i = 0; i < lines.length; i++) {
-        var line = lines[i].trim();
-        if (line === '') {
-            if (inList) {
-                formattedHtml += '</ul>';
-                inList = false;
-            }
-            formattedHtml += '<br>';
-            continue;
+function calculateMentalResults() {
+    // Calculate total score
+    var totalScore = 0;
+    for (var i = 0; i < mentalQuestions.length; i++) {
+        var score = mentalAnswers[i];
+        // Reverse scoring for positive questions
+        if (mentalQuestions[i].reverse) {
+            score = 4 - score; // Convert 0->4, 1->3, 2->2, 3->1, 4->0
         }
-        
-        if (line.indexOf('What this means:') !== -1) {
-            if (inList) { formattedHtml += '</ul>'; inList = false; }
-            formattedHtml += '<h3 class="text-lg font-bold mt-4 mb-2">' + line + '</h3>';
-        } else if (line.indexOf('Gentle suggestions:') !== -1) {
-            if (inList) { formattedHtml += '</ul>'; inList = false; }
-            formattedHtml += '<h3 class="text-lg font-bold mt-4 mb-2">' + line + '</h3>';
-        } else if (line.indexOf('- ') === 0) {
-            if (!inList) {
-                formattedHtml += '<ul class="list-disc pl-5 space-y-1">';
-                inList = true;
-            }
-            formattedHtml += '<li>' + line.substring(2) + '</li>';
-        } else if (i === 0) {
-            formattedHtml += '<h2 class="text-2xl font-bold mb-4">' + line + '</h2>';
-        } else if (!inList) {
-            formattedHtml += '<p class="mb-2">' + line + '</p>';
-        }
+        totalScore += score;
     }
     
-    if (inList) {
-        formattedHtml += '</ul>';
+    // Maximum score is 40 (10 questions x 4 points)
+    var maxScore = 40;
+    var percentage = (totalScore / maxScore) * 100;
+    
+    // Determine result category
+    var result;
+    if (percentage >= 75) {
+        result = {
+            emoji: "😰",
+            title: "High Stress Level",
+            score: "Score: " + totalScore + "/40",
+            description: "Your responses indicate that you may be experiencing significant stress or mental health challenges. " +
+                "This could be affecting your daily life, sleep, and academic performance. " +
+                "It would be beneficial to speak with a counselor or mental health professional to get support."
+        };
+    } else if (percentage >= 50) {
+        result = {
+            emoji: "😐",
+            title: "Moderate Stress Level",
+            score: "Score: " + totalScore + "/40",
+            description: "You're experiencing some stress and emotional challenges, which is common among students. " +
+                "Consider incorporating self-care activities, regular exercise, and healthy sleep habits. " +
+                "If feelings persist, reaching out to campus counseling could be helpful."
+        };
+    } else if (percentage >= 25) {
+        result = {
+            emoji: "🙂",
+            title: "Mild Stress Level",
+            score: "Score: " + totalScore + "/40",
+            description: "You seem to be managing reasonably well. " +
+                "Keep up your healthy habits and continue to prioritize self-care. " +
+                "Remember to take breaks and reach out to your support network when needed."
+        };
+    } else {
+        result = {
+            emoji: "😄",
+            title: "Good Mental Well-being",
+            score: "Score: " + totalScore + "/40",
+            description: "Great news! Your responses suggest you have good mental health and are coping well. " +
+                "Continue maintaining your healthy habits and supporting others around you. " +
+                "Your positive outlook is a great asset!"
+        };
     }
     
-    resultContent.innerHTML = formattedHtml;
+    // Display results
+    displayMentalResults(result);
     
+    // Save to localStorage
     localStorage.setItem('mentalHealthCheckCompleted', 'true');
     localStorage.setItem('mentalHealthCheckDate', new Date().toISOString());
+}
+
+function displayMentalResults(result) {
+    // Hide loading, show results
+    document.getElementById('mental-loading').classList.remove('visible-section');
+    document.getElementById('mental-loading').classList.add('hidden-section');
+    document.getElementById('mental-results').classList.remove('hidden-section');
+    document.getElementById('mental-results').classList.add('visible-section');
     
-    showNotification('Your wellness check is complete!', 'success');
+    // Set result data
+    document.getElementById('result-emoji').textContent = result.emoji;
+    document.getElementById('result-title').textContent = result.title;
+    document.getElementById('result-score').textContent = result.score;
+    document.getElementById('result-description').textContent = result.description;
+    
+    showNotification('Your mental health check is complete!', 'success');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function retakeMentalCheck() {
-    selectedMood = 0;
-    selectedSleep = 0;
-    document.getElementById('selected-mood').value = '0';
-    document.getElementById('selected-sleep').value = '0';
-    document.getElementById('stress-slider').value = '5';
-    document.getElementById('stress-value').textContent = '5';
-    document.getElementById('mental-notes').value = '';
-    
-    var buttons = document.querySelectorAll('.mood-btn, .sleep-btn');
-    for (var i = 0; i < buttons.length; i++) {
-        buttons[i].classList.remove('selected', 'border-violet-500', 'bg-violet-50');
-    }
-    
-    document.getElementById('mental-results-section').classList.remove('visible-section');
-    document.getElementById('mental-results-section').classList.add('hidden-section');
-    document.getElementById('mood-section').classList.remove('hidden-section');
-    document.getElementById('mood-section').classList.add('visible-section');
-}
-
-function downloadMentalReport() {
-    var content = document.getElementById('mental-result-content').innerText;
-    var blob = new Blob([content], { type: 'text/plain' });
-    var url = window.URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'wellness-report.txt';
-    a.click();
-    window.URL.revokeObjectURL(url);
+    initMentalCheck();
 }
 
 // ============================================
@@ -231,10 +342,16 @@ function openMode(mode) {
             var proceed = confirm('You already completed a check on ' + dateStr + '. Take again?');
             if (!proceed) return;
         }
+        // Initialize mental check
+        initMentalCheck();
     }
     
     heroSection.style.display = 'none';
     interactiveContainer.classList.remove('hidden');
+    
+    // Show page footer, hide main footer
+    document.getElementById('main-footer').classList.add('hidden');
+    document.getElementById('page-footer').classList.remove('hidden');
     
     var modeElements = document.querySelectorAll('[id^="mode-"]');
     for (var i = 0; i < modeElements.length; i++) {
@@ -255,6 +372,10 @@ function openMode(mode) {
 function resetView() {
     heroSection.style.display = 'block';
     interactiveContainer.classList.add('hidden');
+    
+    // Show main footer, hide page footer
+    document.getElementById('main-footer').classList.remove('hidden');
+    document.getElementById('page-footer').classList.add('hidden');
     
     var modeElements = document.querySelectorAll('[id^="mode-"]');
     for (var i = 0; i < modeElements.length; i++) {
@@ -304,6 +425,10 @@ function loginAdmin(event) {
 function openAdminDashboard() {
     heroSection.style.display = 'none';
     interactiveContainer.classList.remove('hidden');
+    
+    // Show page footer, hide main footer
+    document.getElementById('main-footer').classList.add('hidden');
+    document.getElementById('page-footer').classList.remove('hidden');
     
     var modeElements = document.querySelectorAll('[id^="mode-"]');
     for (var i = 0; i < modeElements.length; i++) {
@@ -564,7 +689,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
     
-    // Category click handlers
     var categoryCards = document.querySelectorAll('.category-card');
     for (var i = 0; i < categoryCards.length; i++) {
         categoryCards[i].addEventListener('click', function() {
@@ -648,7 +772,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Filter event listeners
     var statusFilter = document.getElementById('status-filter');
     var urgencyFilter = document.getElementById('urgency-filter');
     

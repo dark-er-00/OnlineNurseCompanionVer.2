@@ -3,6 +3,8 @@
             font-family: 'Outfit', sans-serif;
             background-color: #f8fafc;
             overflow-x: hidden;
+            position: relative;
+            min-height: 100vh;
         }
 
         footer {
@@ -11,6 +13,26 @@
         padding: 1.5rem;
         text-align: center;
         flex-shrink: 0;
+        width: 100%;
+        position: relative;
+        z-index: 10;
+        }
+        
+        footer.hidden {
+            display: none;
+        }
+        
+        /* Ensure footer stays at bottom */
+        #interactive-container {
+            min-height: 60vh;
+            padding-bottom: 3rem;
+        }
+        
+        /* Clear any floated elements */
+        main::after {
+            content: "";
+            display: table;
+            clear: both;
         }
 
         /* Custom Scrollbar */
