@@ -40,6 +40,10 @@ function showNotification(message, type = 'info') {
                         if (!proceed) {
                             return; // Don't open the mode
                         }
+                        // Reset assessment for retake
+                        if (typeof resetAssessment === 'function') {
+                            resetAssessment();
+                        }
                     }
                 }
                 
@@ -62,6 +66,11 @@ function showNotification(message, type = 'info') {
                     // Trigger reflow
                     void targetMode.offsetWidth; 
                     targetMode.classList.add('active');
+                    
+                    // Initialize mental health questionnaire if opening mental mode
+                    if (mode === 'mental' && typeof initMentalHealthQuestionnaire === 'function') {
+                        initMentalHealthQuestionnaire();
+                    }
                 }
 
                 // Scroll to top
@@ -1255,6 +1264,151 @@ Now generate the result based on the provided emotional indicators.`;
                 const modal = document.getElementById('result-notification-modal');
                 modal.classList.add('hidden');
                 modal.classList.remove('flex');
+            }
+            
+            // Global functions for button onclick handlers
+            function goPreviousQuestion() {
+                if (currentQuestion > 0) {
+                    currentQuestion--;
+                    renderQuestion();
+                    updateButtonStates();
+                }
+            }
+            
+            function goNextQuestion() {
+                if (currentQuestion < questions.length - 1 && answers[currentQuestion] !== null) {
+                    currentQuestion++;
+                    renderQuestion();
+                    updateButtonStates();
+                }
+            }
+            
+            function submitMentalHealthAssessment() {
+                // Check if last question is answered
+                if (answers[currentQuestion] === null) {
+                    showNotification('Please answer the current question before submitting.', 'error');
+                    return;
+                }
+                submitAssessment();
+            }
+            
+            function updateButtonStates() {
+                const prevBtn = document.getElementById('prev-btn');
+                const nextBtn = document.getElementById('next-btn');
+                const submitBtn = document.getElementById('submit-btn');
+                
+                // Previous button
+                if (currentQuestion === 0) {
+                    prevBtn.disabled = true;
+                    prevBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                } else {
+                    prevBtn.disabled = false;
+                    prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+                
+                const hasAnswer = answers[currentQuestion] !== null;
+                const isLast = currentQuestion === questions.length - 1;
+                
+                if (isLast) {
+                    nextBtn.classList.add('hidden');
+                    submitBtn.classList.remove('hidden');
+                    if (hasAnswer) {
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        submitBtn.disabled = true;
+                        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
+                } else {
+                    nextBtn.classList.remove('hidden');
+                    submitBtn.classList.add('hidden');
+                    if (hasAnswer) {
+                        nextBtn.disabled = false;
+                        nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        nextBtn.disabled = true;
+                        nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    }
+                }
+            }
+            
+            // Handle answer selection
+            function selectAnswer(value) {
+                answers[currentQuestion] = value;
+                
+                // Update visual selection
+                const optionCards = document.querySelectorAll('.option-card');
+                optionCards.forEach(function(card, index) {
+                    if (index === value) {
+                        card.classList.add('selected', 'border-violet-500', 'bg-violet-50');
+                    } else {
+                        card.classList.remove('selected', 'border-violet-500', 'bg-violet-50');
+                    }
+                });
+                
+                // Update button states
+                updateButtonStates();
+            }
+            
+            // Initialize mental health questionnaire
+            function initMentalHealthQuestionnaire() {
+                // Reset state
+                currentQuestion = 0;
+                answers = new Array(10).fill(null);
+                
+                // Get DOM elements
+                const questionText = document.getElementById('question-text');
+                const currentNum = document.getElementById('current-num');
+                const totalNum = document.getElementById('total-num');
+                const progressBar = document.getElementById('progress-bar');
+                const progressPercent = document.getElementById('progress-percent');
+                const prevBtn = document.getElementById('prev-btn');
+                const nextBtn = document.getElementById('next-btn');
+                const submitBtn = document.getElementById('submit-btn');
+                const questionnaireSection = document.getElementById('questionnaire-section');
+                const loadingSection = document.getElementById('loading-section');
+                const resultsSection = document.getElementById('results-section');
+                
+                // Show questionnaire section, hide others
+                if (questionnaireSection) {
+                    questionnaireSection.classList.remove('hidden-section');
+                    questionnaireSection.classList.add('visible-section');
+                }
+                if (loadingSection) {
+                    loadingSection.classList.add('hidden-section');
+                    loadingSection.classList.remove('visible-section');
+                }
+                if (resultsSection) {
+                    resultsSection.classList.add('hidden-section');
+                    resultsSection.classList.remove('visible-section');
+                }
+                
+                // Initialize display
+                if (totalNum) totalNum.textContent = questions.length;
+                
+                // Re-attach event listeners
+                if (prevBtn) {
+                    prevBtn.onclick = function() {
+                        if (currentQuestion > 0) {
+                            currentQuestion--;
+                            renderQuestion();
+                        }
+                    };
+                }
+                if (nextBtn) {
+                    nextBtn.onclick = function() {
+                        if (currentQuestion < questions.length - 1 && answers[currentQuestion] !== null) {
+                            currentQuestion++;
+                            renderQuestion();
+                        }
+                    };
+                }
+                if (submitBtn) {
+                    submitBtn.onclick = submitAssessment;
+                }
+                
+                // Render first question
+                renderQuestion();
             }
 
             // Keyboard navigation
