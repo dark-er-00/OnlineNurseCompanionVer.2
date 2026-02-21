@@ -1,8 +1,20 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const http = require("http");
+const { Server } = require("socket.io");
+const cron = require("node-cron");
 
 const app = express();
+const server = http.createServer(app);
+
+// Socket.io setup for real-time notifications
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 // Middleware
 app.use(cors());
@@ -19,6 +31,41 @@ app.get("/", (req, res) => {
 // Test API route
 app.get("/api/test", (req, res) => {
   res.json({ message: "Backend is working on Vercel 🚀" });
+});
+
+// Google Sheets sync endpoint (can also be triggered manually)
+app.post("/api/sync/sheets", async (req, res) => {
+  try {
+    const { syncSheetToDatabase } = require("./services/googleSheetsSync");
+    const newCases = await syncSheetToDatabase(io);
+    res.json({ 
+      success: true, 
+      message: `Synced ${newCases.length} new cases`,
+      cases: newCases 
+    });
+  } catch (error) {
+    console.error("Sync error:", error);
+    res.status(500).json({ error: "Failed to sync from Google Sheets" });
+  }
+});
+
+// Get sync status
+app.get("/api/sync/status", async (req, res) => {
+  try {
+    const { connectDB, Case } = require("./models/case");
+    await connectDB();
+    
+    const totalCases = await Case.countDocuments();
+    const lastCase = await Case.findOne().sort({ createdAt: -1 });
+    
+    res.json({
+      totalCases,
+      lastSyncTime: lastCase?.createdAt || null
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to get sync status" });
+  }
 });
 
 // Admin API routes
@@ -51,6 +98,9 @@ app.put("/api/admin/cases/:id", async (req, res) => {
       return res.status(404).json({ error: "Case not found" });
     }
     
+    // Notify all clients about the update
+    io.emit("case-updated", updatedCase);
+    
     res.json(updatedCase);
   } catch (error) {
     console.error(error);
@@ -69,6 +119,9 @@ app.delete("/api/admin/cases/:id", async (req, res) => {
     if (!deletedCase) {
       return res.status(404).json({ error: "Case not found" });
     }
+    
+    // Notify all clients about the deletion
+    io.emit("case-deleted", { id: caseId });
     
     res.json({ message: "Case deleted successfully" });
   } catch (error) {
@@ -123,7 +176,7 @@ app.get("/api/admin/stats", async (req, res) => {
   }
 });
 
- // GROQ API route
+// GROQ API route
 app.post("/api/groq", async (req, res) => {
   try {
     const { message } = req.body;
@@ -164,12 +217,36 @@ app.post("/api/groq", async (req, res) => {
   }
 });
 
+// Socket.io connection handling
+io.on("connection", (socket) => {
+  console.log("Client connected:", socket.id);
+  
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
+  });
+});
+
+// Schedule Google Sheets sync every minute (for testing)
+// In production, you might want to adjust this interval
+cron.schedule("* * * * *", async () => {
+  console.log("Running scheduled Google Sheets sync...");
+  try {
+    const { syncSheetToDatabase } = require("./services/googleSheetsSync");
+    const newCases = await syncSheetToDatabase(io);
+    if (newCases.length > 0) {
+      console.log(`Synced ${newCases.length} new cases from Google Sheets`);
+    }
+  } catch (error) {
+    console.error("Scheduled sync error:", error);
+  }
+});
+
 // Start server if running directly
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
 }
 
-module.exports = app;
+module.exports = { app, server, io };

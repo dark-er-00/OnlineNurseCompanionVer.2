@@ -1,5 +1,29 @@
 lucide.createIcons();
 
+// Notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-0`;
+    
+    if (type === 'success') {
+        notification.classList.add('bg-green-500', 'text-white');
+    } else if (type === 'error') {
+        notification.classList.add('bg-red-500', 'text-white');
+    } else {
+        notification.classList.add('bg-blue-500', 'text-white');
+    }
+    
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    // Auto remove after 3 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translate-y-2';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
             // View Management
             const heroSection = document.getElementById('hero-section');
             const interactiveContainer = document.getElementById('interactive-container');
@@ -129,6 +153,32 @@ function openAdminDashboard() {
     // Load data
     loadAdminStats();
     loadCases();
+    
+    // Initialize Socket.io for real-time updates
+    if (typeof io !== 'undefined') {
+        const socket = io();
+        
+        socket.on('new-case', (newCase) => {
+            console.log('New case received:', newCase);
+            // Show notification
+            showNotification('New case received from Google Sheets!', 'success');
+            // Reload data
+            loadCases();
+            loadAdminStats();
+        });
+        
+        socket.on('case-updated', (updatedCase) => {
+            console.log('Case updated:', updatedCase);
+            loadCases();
+            loadAdminStats();
+        });
+        
+        socket.on('case-deleted', (data) => {
+            console.log('Case deleted:', data);
+            loadCases();
+            loadAdminStats();
+        });
+    }
 
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
