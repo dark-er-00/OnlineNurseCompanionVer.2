@@ -1,9 +1,202 @@
+// Initialize Lucide icons
 lucide.createIcons();
 
-// Notification function
-function showNotification(message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-0`;
+// ============================================
+// MENTAL HEALTH CHECK - NEW VERSION
+// ============================================
+var selectedMood = 0;
+var selectedSleep = 0;
+
+function selectMood(value) {
+    selectedMood = value;
+    document.getElementById('selected-mood').value = value;
+    
+    var buttons = document.querySelectorAll('.mood-btn');
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.remove('selected', 'border-violet-500', 'bg-violet-50');
+    }
+    document.querySelector('.mood-btn.mood-' + value).classList.add('selected', 'border-violet-500', 'bg-violet-50');
+}
+
+function selectSleep(value) {
+    selectedSleep = value;
+    document.getElementById('selected-sleep').value = value;
+    
+    var buttons = document.querySelectorAll('.sleep-btn');
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.remove('selected', 'border-violet-500', 'bg-violet-50');
+    }
+    document.querySelector('.sleep-btn.sleep-' + value).classList.add('selected', 'border-violet-500', 'bg-violet-50');
+}
+
+// Initialize stress slider
+document.addEventListener('DOMContentLoaded', function() {
+    var stressSlider = document.getElementById('stress-slider');
+    if (stressSlider) {
+        stressSlider.addEventListener('input', function() {
+            document.getElementById('stress-value').textContent = this.value;
+        });
+    }
+});
+
+async function submitMentalHealthCheck() {
+    if (selectedMood === 0) {
+        showNotification('Please select your mood', 'error');
+        return;
+    }
+    
+    if (selectedSleep === 0) {
+        showNotification('Please select your sleep quality', 'error');
+        return;
+    }
+    
+    var stressLevel = document.getElementById('stress-slider').value;
+    var notes = document.getElementById('mental-notes').value;
+    
+    document.getElementById('mood-section').classList.remove('visible-section');
+    document.getElementById('mood-section').classList.add('hidden-section');
+    document.getElementById('mental-loading-section').classList.remove('hidden-section');
+    document.getElementById('mental-loading-section').classList.add('visible-section');
+    
+    try {
+        var result = await getMentalHealthAnalysis(selectedMood, stressLevel, selectedSleep, notes);
+        displayMentalHealthResult(result, selectedMood);
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Something went wrong. Please try again.', 'error');
+        document.getElementById('mood-section').classList.remove('hidden-section');
+        document.getElementById('mood-section').classList.add('visible-section');
+        document.getElementById('mental-loading-section').classList.remove('visible-section');
+        document.getElementById('mental-loading-section').classList.add('hidden-section');
+    }
+}
+
+async function getMentalHealthAnalysis(mood, stress, sleep, notes) {
+    var moodLabels = ['', 'Very Low', 'Low', 'Neutral', 'Good', 'Great'];
+    var sleepLabels = ['', 'Very Poor', 'Poor', 'Average', 'Good', 'Excellent'];
+    
+    var prompt = 'You are a compassionate mental health wellness assistant for university students. ' +
+        'USER MOOD: ' + moodLabels[mood] + ' (1=Very Low, 5=Great). ' +
+        'STRESS LEVEL: ' + stress + '/10. ' +
+        'SLEEP QUALITY: ' + sleepLabels[sleep] + '. ' +
+        'ADDITIONAL NOTES: ' + (notes || 'None') + '. ' +
+        'Provide a supportive wellness summary with: 1) A title, 2) A short paragraph, 3) What this means (3 bullet points), 4) Gentle suggestions (2 bullet points), 5) One encouragement sentence. Keep it simple, no emojis, no clinical language.';
+    
+    var response = await fetch('/api/groq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: prompt })
+    });
+
+    if (!response.ok) {
+        throw new Error('API Error: ' + response.status);
+    }
+
+    var data = await response.json();
+    return data.choices[0].message.content;
+}
+
+function displayMentalHealthResult(aiText, mood) {
+    var loadingSection = document.getElementById('mental-loading-section');
+    var resultsSection = document.getElementById('mental-results-section');
+    var resultContent = document.getElementById('mental-result-content');
+    var resultEmoji = document.getElementById('result-emoji');
+    
+    loadingSection.classList.remove('visible-section');
+    loadingSection.classList.add('hidden-section');
+    resultsSection.classList.remove('hidden-section');
+    resultsSection.classList.add('visible-section');
+    
+    var emojis = ['', '😢', '😔', '😐', '🙂', '😄'];
+    resultEmoji.textContent = emojis[mood];
+    
+    // Simple text formatting
+    var lines = aiText.split('\n');
+    var formattedHtml = '';
+    var inList = false;
+    
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line === '') {
+            if (inList) {
+                formattedHtml += '</ul>';
+                inList = false;
+            }
+            formattedHtml += '<br>';
+            continue;
+        }
+        
+        if (line.indexOf('What this means:') !== -1) {
+            if (inList) { formattedHtml += '</ul>'; inList = false; }
+            formattedHtml += '<h3 class="text-lg font-bold mt-4 mb-2">' + line + '</h3>';
+        } else if (line.indexOf('Gentle suggestions:') !== -1) {
+            if (inList) { formattedHtml += '</ul>'; inList = false; }
+            formattedHtml += '<h3 class="text-lg font-bold mt-4 mb-2">' + line + '</h3>';
+        } else if (line.indexOf('- ') === 0) {
+            if (!inList) {
+                formattedHtml += '<ul class="list-disc pl-5 space-y-1">';
+                inList = true;
+            }
+            formattedHtml += '<li>' + line.substring(2) + '</li>';
+        } else if (i === 0) {
+            formattedHtml += '<h2 class="text-2xl font-bold mb-4">' + line + '</h2>';
+        } else if (!inList) {
+            formattedHtml += '<p class="mb-2">' + line + '</p>';
+        }
+    }
+    
+    if (inList) {
+        formattedHtml += '</ul>';
+    }
+    
+    resultContent.innerHTML = formattedHtml;
+    
+    localStorage.setItem('mentalHealthCheckCompleted', 'true');
+    localStorage.setItem('mentalHealthCheckDate', new Date().toISOString());
+    
+    showNotification('Your wellness check is complete!', 'success');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function retakeMentalCheck() {
+    selectedMood = 0;
+    selectedSleep = 0;
+    document.getElementById('selected-mood').value = '0';
+    document.getElementById('selected-sleep').value = '0';
+    document.getElementById('stress-slider').value = '5';
+    document.getElementById('stress-value').textContent = '5';
+    document.getElementById('mental-notes').value = '';
+    
+    var buttons = document.querySelectorAll('.mood-btn, .sleep-btn');
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.remove('selected', 'border-violet-500', 'bg-violet-50');
+    }
+    
+    document.getElementById('mental-results-section').classList.remove('visible-section');
+    document.getElementById('mental-results-section').classList.add('hidden-section');
+    document.getElementById('mood-section').classList.remove('hidden-section');
+    document.getElementById('mood-section').classList.add('visible-section');
+}
+
+function downloadMentalReport() {
+    var content = document.getElementById('mental-result-content').innerText;
+    var blob = new Blob([content], { type: 'text/plain' });
+    var url = window.URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'wellness-report.txt';
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// ============================================
+// NOTIFICATION FUNCTION
+// ============================================
+function showNotification(message, type) {
+    if (!type) type = 'info';
+    
+    var notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-0';
     
     if (type === 'success') {
         notification.classList.add('bg-green-500', 'text-white');
@@ -16,193 +209,141 @@ function showNotification(message, type = 'info') {
     notification.textContent = message;
     document.body.appendChild(notification);
     
-    // Auto remove after 3 seconds
-    setTimeout(() => {
+    setTimeout(function() {
         notification.style.opacity = '0';
         notification.style.transform = 'translate-y-2';
-        setTimeout(() => notification.remove(), 300);
+        setTimeout(function() { notification.remove(); }, 300);
     }, 3000);
 }
 
-            // View Management
-            const heroSection = document.getElementById('hero-section');
-            const interactiveContainer = document.getElementById('interactive-container');
+// ============================================
+// VIEW MANAGEMENT
+// ============================================
+var heroSection = document.getElementById('hero-section');
+var interactiveContainer = document.getElementById('interactive-container');
 
-            
-            function openMode(mode) {
-                // Check if mental health assessment was already completed (one-time form)
-                if (mode === 'mental') {
-                    const isCompleted = localStorage.getItem('mentalHealthCheckCompleted');
-                    if (isCompleted) {
-                        const lastDate = localStorage.getItem('mentalHealthCheckDate');
-                        const dateStr = lastDate ? new Date(lastDate).toLocaleDateString() : 'before';
-                        const proceed = confirm('You have already completed a mental health check on ' + dateStr + '. Do you want to take it again?');
-                        if (!proceed) {
-                            return; // Don't open the mode
-                        }
-                        // Reset assessment for retake
-                        if (typeof resetAssessment === 'function') {
-                            resetAssessment();
-                        }
-                    }
-                }
-                
-                // Hide Hero
-                heroSection.style.display = 'none';
-                
-                // Show Container
-                interactiveContainer.classList.remove('hidden');
-                
-                // Hide all modes first
-                document.querySelectorAll('[id^="mode-"]').forEach(el => {
-                    el.classList.add('hidden');
-                    el.classList.remove('active');
-                });
-
-                // Show specific mode with slight delay for animation
-                const targetMode = document.getElementById(`mode-${mode}`);
-                if(targetMode) {
-                    targetMode.classList.remove('hidden');
-                    // Trigger reflow
-                    void targetMode.offsetWidth; 
-                    targetMode.classList.add('active');
-                    
-                    // Initialize mental health questionnaire if opening mental mode
-                    if (mode === 'mental' && typeof initMentalHealthQuestionnaire === 'function') {
-                        initMentalHealthQuestionnaire();
-                    }
-                }
-
-                // Scroll to top
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-
-            function resetView() {
-                // Show Hero
-                heroSection.style.display = 'block';
-                
-                // Hide Container
-                interactiveContainer.classList.add('hidden');
-                
-                // Reset internal mode states if needed
-                document.querySelectorAll('[id^="mode-"]').forEach(el => {
-                    el.classList.add('hidden');
-                });
-            }
-
-
-           function resetViewMental() {
-    if (confirm('Are you sure you want to close? Your progress will be lost.')) {
-        resetAssessment();
+function openMode(mode) {
+    if (mode === 'mental') {
+        var isCompleted = localStorage.getItem('mentalHealthCheckCompleted');
+        if (isCompleted) {
+            var lastDate = localStorage.getItem('mentalHealthCheckDate');
+            var dateStr = lastDate ? new Date(lastDate).toLocaleDateString() : 'before';
+            var proceed = confirm('You already completed a check on ' + dateStr + '. Take again?');
+            if (!proceed) return;
+        }
+    }
+    
+    heroSection.style.display = 'none';
+    interactiveContainer.classList.remove('hidden');
+    
+    var modeElements = document.querySelectorAll('[id^="mode-"]');
+    for (var i = 0; i < modeElements.length; i++) {
+        modeElements[i].classList.add('hidden');
+        modeElements[i].classList.remove('active');
     }
 
-    document.querySelectorAll('.mentalPanel').forEach(el => {
-        el.classList.remove('hidden');
-    });
+    var targetMode = document.getElementById('mode-' + mode);
+    if (targetMode) {
+        targetMode.classList.remove('hidden');
+        void targetMode.offsetWidth; 
+        targetMode.classList.add('active');
+    }
 
-    document.querySelectorAll('.mentalCheck').forEach(el => {
-        el.classList.add('hidden');
-    });
-
-    document.querySelectorAll('[id^="mode-"]').forEach(el => {
-        el.classList.add('hidden');
-    });
-    
-    const mentalPanel = document.getElementById('mode-mental');
-    if (mentalPanel) mentalPanel.classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-            function clearSearch() {
-                const input = document.querySelector('input[type="text"]');
-                if(input) input.value = '';
-            }
 
-            // LOGIN PANEL CONTROL
+function resetView() {
+    heroSection.style.display = 'block';
+    interactiveContainer.classList.add('hidden');
+    
+    var modeElements = document.querySelectorAll('[id^="mode-"]');
+    for (var i = 0; i < modeElements.length; i++) {
+        modeElements[i].classList.add('hidden');
+    }
+}
+
+function clearSearch() {
+    var input = document.querySelector('input[type="text"]');
+    if (input) input.value = '';
+}
+
+// ============================================
+// LOGIN PANEL FUNCTIONS
+// ============================================
 function openLogin() {
-    document.getElementById("loginPanel").style.display = "flex";
+    document.getElementById('loginPanel').style.display = 'flex';
 }
 
 function closeLogin() {
-    document.getElementById("loginPanel").style.display = "none";
+    document.getElementById('loginPanel').style.display = 'none';
 }
 
-// SIMPLE ADMIN LOGIN
 function loginAdmin(event) {
     event.preventDefault();
 
-    const username = document.getElementById("adminUser").value;
-    const password = document.getElementById("adminPass").value;
-    const msg = document.getElementById("loginMsg");
+    var username = document.getElementById('adminUser').value;
+    var password = document.getElementById('adminPass').value;
+    var msg = document.getElementById('loginMsg');
 
-    // demo credentials (you can change later)
-    const adminUser = "admin";
-    const adminPass = "1234";
-
-    if (username === adminUser && password === adminPass) {
-        msg.style.color = "green";
-        msg.innerText = "Login successful!";
-        setTimeout(() => {
+    if (username === 'admin' && password === '1234') {
+        msg.style.color = 'green';
+        msg.innerText = 'Login successful!';
+        setTimeout(function() {
             closeLogin();
             openAdminDashboard();
         }, 1000);
     } else {
-        msg.style.color = "red";
-        msg.innerText = "Invalid username or password";
+        msg.style.color = 'red';
+        msg.innerText = 'Invalid username or password';
     }
 }
 
+// ============================================
 // ADMIN DASHBOARD FUNCTIONS
+// ============================================
 function openAdminDashboard() {
-    // Hide Hero
     heroSection.style.display = 'none';
-    
-    // Show Container
     interactiveContainer.classList.remove('hidden');
     
-    // Hide all modes first
-    document.querySelectorAll('[id^="mode-"]').forEach(el => {
-        el.classList.add('hidden');
-        el.classList.remove('active');
-    });
+    var modeElements = document.querySelectorAll('[id^="mode-"]');
+    for (var i = 0; i < modeElements.length; i++) {
+        modeElements[i].classList.add('hidden');
+        modeElements[i].classList.remove('active');
+    }
 
-    // Show admin dashboard
-    const adminMode = document.getElementById('mode-admin');
-    if(adminMode) {
+    var adminMode = document.getElementById('mode-admin');
+    if (adminMode) {
         adminMode.classList.remove('hidden');
         void adminMode.offsetWidth; 
         adminMode.classList.add('active');
     }
 
-    // Load data
     loadAdminStats();
     loadCases();
     
-    // Initialize Socket.io for real-time updates
     if (typeof io !== 'undefined') {
-        const socket = io();
+        var socket = io();
         
-        socket.on('new-case', (newCase) => {
+        socket.on('new-case', function(newCase) {
             console.log('New case received:', newCase);
-            // Show notification
             showNotification('New case received from Google Sheets!', 'success');
-            // Reload data
             loadCases();
             loadAdminStats();
         });
         
-        socket.on('case-updated', (updatedCase) => {
+        socket.on('case-updated', function(updatedCase) {
             console.log('Case updated:', updatedCase);
             loadCases();
             loadAdminStats();
         });
         
-        socket.on('case-deleted', (data) => {
+        socket.on('case-deleted', function(data) {
             console.log('Case deleted:', data);
             loadCases();
             loadAdminStats();
         });
     }
 
-    // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -214,8 +355,8 @@ function logoutAdmin() {
 
 async function loadAdminStats() {
     try {
-        const response = await fetch('/api/admin/stats');
-        const stats = await response.json();
+        var response = await fetch('/api/admin/stats');
+        var stats = await response.json();
         
         document.getElementById('total-cases').textContent = stats.totalCases;
         document.getElementById('urgent-cases').textContent = stats.urgentCases;
@@ -227,17 +368,17 @@ async function loadAdminStats() {
 
 async function loadCases() {
     try {
-        const statusFilter = document.getElementById('status-filter').value;
-        const urgencyFilter = document.getElementById('urgency-filter').value;
+        var statusFilter = document.getElementById('status-filter').value;
+        var urgencyFilter = document.getElementById('urgency-filter').value;
         
-        let url = '/api/admin/cases';
-        const params = new URLSearchParams();
-        if (statusFilter) params.append('status', statusFilter);
-        if (urgencyFilter) params.append('urgency', urgencyFilter);
-        if (params.toString()) url += `?${params.toString()}`;
+        var url = '/api/admin/cases';
+        var params = [];
+        if (statusFilter) params.push('status=' + statusFilter);
+        if (urgencyFilter) params.push('urgency=' + urgencyFilter);
+        if (params.length > 0) url += '?' + params.join('&');
         
-        const response = await fetch(url);
-        const cases = await response.json();
+        var response = await fetch(url);
+        var cases = await response.json();
         renderCases(cases);
     } catch (error) {
         console.error('Error loading cases:', error);
@@ -245,7 +386,7 @@ async function loadCases() {
 }
 
 function renderCases(cases) {
-    const tbody = document.getElementById('cases-table-body');
+    var tbody = document.getElementById('cases-table-body');
     tbody.innerHTML = '';
     
     if (cases.length === 0) {
@@ -253,80 +394,61 @@ function renderCases(cases) {
         return;
     }
     
-    cases.forEach(caseItem => {
-        const row = tbody.insertRow();
+    for (var i = 0; i < cases.length; i++) {
+        var caseItem = cases[i];
+        var row = tbody.insertRow();
         row.className = 'hover:bg-slate-50 transition-colors';
         
-        // Date
-        const dateCell = row.insertCell();
+        var dateCell = row.insertCell();
         dateCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-slate-600';
         dateCell.textContent = new Date(caseItem.createdAt).toLocaleDateString();
         
-        // Student
-        const studentCell = row.insertCell();
+        var studentCell = row.insertCell();
         studentCell.className = 'px-6 py-4 whitespace-nowrap';
-        studentCell.innerHTML = `
-            <div class="text-sm font-medium text-slate-900">${caseItem.studentName}</div>
-            <div class="text-sm text-slate-500">${caseItem.email}</div>
-        `;
+        studentCell.innerHTML = '<div class="text-sm font-medium text-slate-900">' + caseItem.studentName + '</div><div class="text-sm text-slate-500">' + caseItem.email + '</div>';
         
-        // Course
-        const courseCell = row.insertCell();
+        var courseCell = row.insertCell();
         courseCell.className = 'px-6 py-4 whitespace-nowrap text-sm text-slate-600';
-        courseCell.textContent = caseItem.course;
+        courseCell.textContent = caseItem.course || 'N/A';
         
-        // Symptoms
-        const symptomsCell = row.insertCell();
+        var symptomsCell = row.insertCell();
         symptomsCell.className = 'px-6 py-4 text-sm text-slate-600';
-        symptomsCell.textContent = caseItem.symptoms;
+        symptomsCell.textContent = (caseItem.symptoms || '').substring(0, 50) + '...';
         
-        // Urgency
-        const urgencyCell = row.insertCell();
+        var urgencyCell = row.insertCell();
         urgencyCell.className = 'px-6 py-4 whitespace-nowrap';
-        const urgencyClass = caseItem.urgencyLevel === 'URGENT' ? 'bg-red-100 text-red-600' : 
-                           caseItem.urgencyLevel === 'MEDIUM' ? 'bg-yellow-100 text-yellow-600' : 'bg-green-100 text-green-600';
-        urgencyCell.innerHTML = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${urgencyClass}">${caseItem.urgencyLevel}</span>`;
+        var urgencyClass = caseItem.urgency === 'URGENT' ? 'bg-red-100 text-red-800' : (caseItem.urgency === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800');
+        urgencyCell.innerHTML = '<span class="px-2 py-1 text-xs font-semibold rounded-full ' + urgencyClass + '">' + caseItem.urgency + '</span>';
         
-        // Status
-        const statusCell = row.insertCell();
+        var statusCell = row.insertCell();
         statusCell.className = 'px-6 py-4 whitespace-nowrap';
-        const statusClass = caseItem.status === 'resolved' ? 'bg-green-100 text-green-600' : 
-                          caseItem.status === 'in-progress' ? 'bg-blue-100 text-blue-600' : 'bg-yellow-100 text-yellow-600';
-        statusCell.innerHTML = `<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">${caseItem.status || 'pending'}</span>`;
+        var statusClass = caseItem.status === 'resolved' ? 'bg-green-100 text-green-800' : (caseItem.status === 'in-progress' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800');
+        statusCell.innerHTML = '<span class="px-2 py-1 text-xs font-semibold rounded-full ' + statusClass + '">' + caseItem.status + '</span>';
         
-        // Actions
-        const actionsCell = row.insertCell();
-        actionsCell.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium';
-        actionsCell.innerHTML = `
-            <div class="flex gap-2">
-                <button onclick="viewCase('${caseItem._id}')" class="text-indigo-600 hover:text-indigo-900">
-                    <i class="fas fa-eye"></i>
-                </button>
-                <button onclick="updateCaseStatus('${caseItem._id}', 'resolved')" class="text-green-600 hover:text-green-900">
-                    <i class="fas fa-check"></i>
-                </button>
-                <button onclick="deleteCase('${caseItem._id}')" class="text-red-600 hover:text-red-900">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </div>
-        `;
-    });
+        var actionsCell = row.insertCell();
+        actionsCell.className = 'px-6 py-4 whitespace-nowrap text-sm';
+        actionsCell.innerHTML = '<button onclick="viewCase(\'' + caseItem._id + '\')" class="text-indigo-600 hover:text-indigo-900 mr-3"><i class="fas fa-eye"></i></button>' +
+            '<button onclick="updateCaseStatus(\'' + caseItem._id + '\', \'resolved\')" class="text-green-600 hover:text-green-900 mr-3"><i class="fas fa-check"></i></button>' +
+            '<button onclick="deleteCase(\'' + caseItem._id + '\')" class="text-red-600 hover:text-red-900"><i class="fas fa-trash"></i></button>';
+    }
 }
 
 async function updateCaseStatus(caseId, status) {
     try {
-        const response = await fetch(`/api/admin/cases/${caseId}`, {
-            method: 'PUT',
+        var response = await fetch('/api/admin/cases/' + caseId, {
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status })
+            body: JSON.stringify({ status: status })
         });
         
         if (response.ok) {
+            showNotification('Case updated successfully', 'success');
             loadCases();
             loadAdminStats();
         }
     } catch (error) {
         console.error('Error updating case:', error);
+        showNotification('Error updating case', 'error');
     }
 }
 
@@ -336,1112 +458,218 @@ async function deleteCase(caseId) {
     }
     
     try {
-        const response = await fetch(`/api/admin/cases/${caseId}`, {
+        var response = await fetch('/api/admin/cases/' + caseId, {
             method: 'DELETE'
         });
         
         if (response.ok) {
+            showNotification('Case deleted successfully', 'success');
             loadCases();
             loadAdminStats();
         }
     } catch (error) {
         console.error('Error deleting case:', error);
+        showNotification('Error deleting case', 'error');
     }
 }
 
 async function viewCase(caseId) {
     try {
-        const response = await fetch(`/api/admin/cases/${caseId}`);
-        const caseItem = await response.json();
-        alert(`Case Details:\n\nStudent: ${caseItem.studentName}\nEmail: ${caseItem.email}\nCourse: ${caseItem.course}\nSymptoms: ${caseItem.symptoms}\nDuration: ${caseItem.duration}\nPain Level: ${caseItem.painLevel}/10\nUrgency: ${caseItem.urgencyLevel}\nStatus: ${caseItem.status}`);
+        var response = await fetch('/api/admin/cases/' + caseId);
+        var caseItem = await response.json();
+        
+        alert('Case Details:\n\nStudent: ' + caseItem.studentName + '\nEmail: ' + caseItem.email + '\nCourse: ' + (caseItem.course || 'N/A') + '\nSymptoms: ' + caseItem.symptoms + '\nUrgency: ' + caseItem.urgency + '\nStatus: ' + caseItem.status);
     } catch (error) {
         console.error('Error viewing case:', error);
     }
 }
 
-// Filter handlers
-document.getElementById('status-filter')?.addEventListener('change', loadCases);
-document.getElementById('urgency-filter')?.addEventListener('change', loadCases);
-            
-            // First Aid Data
-            const firstAidData = [
-                {
-                    id: 1,
-                    title: "Emergency Contacts",
-                    icon: "ambulance",
-                    description: "Important phone numbers and emergency procedures",
-                    details: {
-                        overview: "In case of emergency, it's crucial to know who to call and what to do.",
-                        steps: [
-                            "Call your local emergency number immediately",
-                            "Stay calm and provide clear information about the situation",
-                            "Follow the instructions of emergency responders",
-                            "If you're trained, provide first aid while waiting for help"
-                        ],
-                        tips: [
-                            "Keep emergency numbers saved in your phone",
-                            "Know the location of nearest emergency services",
-                            "Have a first aid kit readily available"
-                        ]
-                    }
-                },
-                {
-                    id: 2,
-                    title: "Wound Care",
-                    icon: "bandage",
-                    description: "How to clean and dress minor cuts and scrapes",
-                    details: {
-                        overview: "Proper wound care helps prevent infection and promotes healing.",
-                        steps: [
-                            "Wash your hands thoroughly with soap and water",
-                            "Apply gentle pressure with clean cloth to stop bleeding",
-                            "Rinse the wound with clean water to remove debris",
-                            "Clean the area with mild soap and pat dry",
-                            "Apply antibiotic ointment to prevent infection",
-                            "Cover with sterile bandage or dressing"
-                        ],
-                        tips: [
-                            "Change bandage daily or when wet/dirty",
-                            "Watch for signs of infection (redness, swelling, pus, fever)",
-                            "Seek medical help for deep or contaminated wounds"
-                        ]
-                    }
-                },
-                {
-                    id: 3,
-                    title: "Burns & Scalds",
-                    icon: "ice-cream",
-                    description: "Immediate care for minor burns and scalds",
-                    details: {
-                        overview: "Quick action can minimize damage from burns and scalds.",
-                        steps: [
-                            "Cool the burn with cool (not cold) running water for 10-15 minutes",
-                            "Remove tight clothing or jewelry near the burn",
-                            "Cover the burn with sterile, non-stick bandage",
-                            "Take over-the-counter pain relievers if needed"
-                        ],
-                        tips: [
-                            "Do not apply ice, butter, or ointments to severe burns",
-                            "Seek medical help for burns larger than 3 inches in diameter",
-                            "Watch for signs of infection or difficulty breathing"
-                        ]
-                    }
-                },
-                {
-                    id: 4,
-                    title: "Eye Injuries",
-                    icon: "headphones",
-                    description: "How to handle minor eye irritations and injuries",
-                    details: {
-                        overview: "Eye injuries require careful handling to avoid further damage.",
-                        steps: [
-                            "Do not rub the eye",
-                            "For foreign objects: Flush with clean water",
-                            "For chemical splashes: Flush eye with water for at least 15 minutes",
-                            "Cover the eye with sterile bandage if needed"
-                        ],
-                        tips: [
-                            "Seek immediate medical help for severe eye injuries",
-                            "Do not attempt to remove embedded objects",
-                            "Wear protective eyewear when working with tools or chemicals"
-                        ]
-                    }
-                },
-                {
-                    id: 5,
-                    title: "CPR & AED",
-                    icon: "heart-pulse",
-                    description: "Basic life support techniques and AED usage",
-                    details: {
-                        overview: "CPR and AED can save lives in cardiac emergencies.",
-                        steps: [
-                            "Check the scene for safety",
-                            "Check if the person is responsive",
-                            "Call emergency services immediately",
-                            "Start chest compressions (30 compressions at 100-120 per minute)",
-                            "Use AED if available and follow voice instructions"
-                        ],
-                        tips: [
-                            "Take a CPR and first aid course",
-                            "AEDs are easy to use even without training",
-                            "Continue CPR until help arrives or person responds"
-                        ]
-                    }
-                },
-                {
-                    id: 6,
-                    title: "Choking",
-                    icon: "shield",
-                    description: "First aid for choking and airway obstruction",
-                    details: {
-                        overview: "Choking is a life-threatening emergency that requires immediate action.",
-                        steps: [
-                            "Ask 'Are you choking?' and look for signs of distress",
-                            "For adults/children over 1 year: Perform abdominal thrusts (Heimlich maneuver)",
-                            "For infants: Give 5 back blows followed by 5 chest thrusts",
-                            "If person becomes unresponsive, start CPR"
-                        ],
-                        tips: [
-                            "Learn choking first aid techniques for different age groups",
-                            "Be cautious with small objects around young children",
-                            "Seek medical help even if choking is resolved"
-                        ]
-                    }
-                }
-            ];
+// ============================================
+// FAQ DATA AND FUNCTIONS
+// ============================================
+var faqData = [
+    { id: 1, question: 'What should I do if I have a fever?', answer: 'Rest, stay hydrated, and take fever-reducing medication if needed. If fever persists for more than 3 days or exceeds 39°C, consult a healthcare provider.', category: 'general' },
+    { id: 2, question: 'How much water should I drink daily?', answer: 'Aim for 8-10 glasses (about 2-2.5 liters) of water per day. This may vary based on activity level, climate, and individual needs.', category: 'lifestyle' },
+    { id: 3, question: 'What are the side effects of common medications?', answer: 'Common side effects vary by medication but may include drowsiness, nausea, or mild stomach upset. Always read the label and consult a pharmacist or doctor.', category: 'medication' },
+    { id: 4, question: 'How do I treat a minor burn?', answer: 'Run cool (not cold) water over the burn for 10-20 minutes. Do not apply ice, butter, or toothpaste. Cover with a sterile bandage and take pain relievers if needed.', category: 'everyday' },
+    { id: 5, question: 'When should I see a doctor for a headache?', answer: 'Seek medical attention if headaches are severe, frequent, accompanied by fever, or following a head injury. Persistent headaches warrant a professional evaluation.', category: 'general' },
+    { id: 6, question: 'How can I improve my sleep quality?', answer: 'Maintain a consistent sleep schedule, limit screen time before bed, create a dark sleeping environment, and avoid caffeine in the afternoon.', category: 'lifestyle' }
+];
 
-            //FAQ SECTION
-            const faqData = [
-            {
-                id: 1,
-                category: 'general',
-                question: "What is a normal body temperature?",
-                answer: "A normal body temperature ranges from <strong>97°F to 99°F (36.1°C to 37.2°C)</strong>. It varies throughout the day and can be affected by activity, age, and hormones. Temperatures above 100.4°F (38°C) indicate a fever.",
-                icon: "fa-temperature-half"
-            },
-            {
-                id: 2,
-                category: 'lifestyle',
-                question: "How many hours should I sleep each night?",
-                answer: "Teenagers (13-18 years) need <strong>8-10 hours</strong> of sleep per night. School-age children (6-12 years) need 9-12 hours. Quality sleep improves memory, mood, and immune function. Try to maintain a consistent sleep schedule even on weekends.",
-                icon: "fa-moon"
-            },
-            {
-                id: 3,
-                category: 'medication',
-                question: "Can I take paracetamol (acetaminophen) on an empty stomach?",
-                answer: "Yes, paracetamol can generally be taken on an empty stomach and is gentler on the stomach than ibuprofen or aspirin. However:<br>• Always follow the dosage instructions<br>• Do not exceed 3,000-4,000mg per day (adult max)<br>• Take with food if you experience any stomach discomfort<br>• Never mix with alcohol",
-                icon: "fa-pills"
-            },
-            {
-                id: 4,
-                category: 'everyday',
-                question: "Why do I feel dizzy when standing up?",
-                answer: "This is often <strong>orthostatic hypotension</strong> - a sudden drop in blood pressure when standing. Common causes include:<br>• Dehydration<br>• Standing up too quickly<br>• Low blood sugar<br>• Anemia<br><br>To prevent it: Stand up slowly, stay hydrated, and eat regular meals. If dizziness is frequent or severe, consult the nurse.",
-                icon: "fa-person-falling"
-            },
-            {
-                id: 5,
-                category: 'everyday',
-                question: "How much water should I drink daily?",
-                answer: "Teenagers should drink about <strong>8-10 cups (2-2.5 liters)</strong> of water daily. Needs vary based on:<br>• Physical activity level<br>• Weather/climate<br>• Body size<br><br>Signs you're drinking enough: Pale yellow urine, rarely feeling thirsty, and regular bathroom breaks every 3-4 hours.",
-                icon: "fa-glass-water"
-            },
-            {
-                id: 6,
-                category: 'everyday',
-                question: "What are the signs of dehydration?",
-                answer: "Watch for these warning signs:<br>• Thirst and dry mouth<br>• Dark yellow or amber urine<br>• Headache or dizziness<br>• Fatigue or confusion<br>• Dry skin<br>• Rapid heartbeat<br><br><strong>Immediate action:</strong> Drink water or electrolyte solutions slowly. Seek help if symptoms are severe or include vomiting.",
-                icon: "fa-droplet-slash"
-            },
-            {
-                id: 7,
-                category: 'general',
-                question: "What is a normal resting heart rate?",
-                answer: "For teenagers, a normal resting heart rate is between <strong>60-100 beats per minute</strong>. Athletes may have lower rates (40-60 bpm). Factors affecting heart rate include fitness level, emotions, medications, and caffeine intake.",
-                icon: "fa-heart-pulse"
-            },
-            {
-                id: 8,
-                category: 'lifestyle',
-                question: "How can I improve my concentration during class?",
-                answer: "Try these evidence-based strategies:<br>• <strong>Sleep well</strong> - 8+ hours improves focus<br>• <strong>Hydrate</strong> - Even mild dehydration affects cognition<br>• <strong>Eat brain foods</strong> - nuts, berries, fish, whole grains<br>• <strong>Move regularly</strong> - 5-minute walks boost attention<br>• <strong>Limit distractions</strong> - keep phone away<br>• <strong>Practice mindfulness</strong> - 2-minute breathing exercises help",
-                icon: "fa-brain"
-            },
-            {
-                id: 9,
-                category: 'medication',
-                question: "Is it safe to share prescription medication?",
-                answer: "<strong>Never share prescription medications.</strong> This is dangerous because:<br>• Dosages are personalized to individual needs<br>• You may have allergies or interactions<br>• It's illegal and against school policy<br>• What helps one person can harm another<br><br>Always consult the school nurse before taking any medication at school.",
-                icon: "fa-triangle-exclamation"
-            },
-            {
-                id: 10,
-                category: 'everyday',
-                question: "Why do I get headaches during school?",
-                answer: "Common school-related headache triggers:<br>• <strong>Eye strain</strong> - from screens or reading; try the 20-20-20 rule<br>• <strong>Dehydration</strong> - keep a water bottle handy<br>• <strong>Stress/tension</strong> - practice shoulder/neck stretches<br>• <strong>Poor posture</strong> - adjust chair and desk height<br>• <strong>Skipped meals</strong> - eat regular, balanced snacks<br>• <strong>Lack of sleep</strong> - prioritize 8+ hours",
-                icon: "fa-head-side-virus"
-            },
-            {
-                id: 11,
-                category: 'lifestyle',
-                question: "How can I boost my immune system naturally?",
-                answer: "Support your immune system with:<br>• <strong>Nutrition</strong> - vitamin C (citrus), vitamin D (sunlight), zinc (nuts), probiotics (yogurt)<br>• <strong>Sleep</strong> - 8-10 hours for teens<br>• <strong>Exercise</strong> - 60 minutes of moderate activity daily<br>• <strong>Hygiene</strong> - regular hand washing<br>• <strong>Stress management</strong> - chronic stress weakens immunity<br>• <strong>Vaccinations</strong> - stay up to date with flu and routine vaccines",
-                icon: "fa-shield-virus"
-            },
-            {
-                id: 12,
-                category: 'general',
-                question: "When should I stay home from school due to illness?",
-                answer: "Stay home if you have:<br>• Fever over 100.4°F (38°C) - stay home until fever-free for 24 hours without medication<br>• Vomiting or diarrhea - stay home until symptom-free for 24 hours<br>• Persistent cough or sore throat<br>• Eye infections (pink eye)<br>• Contagious conditions like strep throat or flu<br><br>Returning too early can spread illness and slow your recovery.",
-                icon: "fa-house-medical"
-            },
-            {
-                id: 13,
-                category: 'medication',
-                question: "Can I take ibuprofen for menstrual cramps?",
-                answer: "Yes, ibuprofen is effective for menstrual cramps and is safe for most teenagers when used correctly:<br>• Take with food to protect your stomach<br>• Follow package dosage instructions<br>• Start at the first sign of cramps for best effect<br>• Do not exceed 1,200mg per day (OTC limit)<br>• Avoid if you have stomach ulcers, kidney disease, or are dehydrated<br><br>The school nurse can provide guidance and a quiet space if needed.",
-                icon: "fa-capsules"
-            },
-            {
-                id: 14,
-                category: 'everyday',
-                question: "Why do my hands get cold and sweaty when I'm nervous?",
-                answer: "This is your body's <strong>'fight or flight'</strong> response. When anxious, adrenaline causes:<br>• Blood vessels in hands/feet to constrict (cold)<br>• Sweat glands to activate (sweaty palms)<br>• Increased heart rate<br><br>To manage it:<br>• Practice deep breathing (4-7-8 technique)<br>• Warm your hands to signal safety to your brain<br>• Use positive self-talk<br>• Prepare thoroughly to build confidence",
-                icon: "fa-hand-dots"
-            },
-            {
-                id: 15,
-                category: 'lifestyle',
-                question: "What's the best way to wash my hands?",
-                answer: "Proper handwashing takes 20 seconds and prevents 80% of infections:<br>1. Wet hands with clean, running water<br>2. Apply soap and lather thoroughly<br>3. Scrub all surfaces: palms, backs, between fingers, under nails<br>4. Scrub for 20 seconds (sing 'Happy Birthday' twice)<br>5. Rinse completely under running water<br>6. Dry with a clean towel or air dryer<br><br>Use hand sanitizer (60%+ alcohol) when soap isn't available.",
-                icon: "fa-hands-bubbles"
-            }
-        ];
+var currentCategory = 'all';
+var searchTerm = '';
 
-        // State
-        let currentCategory = 'all';
-        let searchTerm = '';
-
-        // DOM Elements
-        const faqContainer = document.getElementById('faq-container');
-        const searchInput = document.getElementById('search-input');
-        const clearSearchBtn = document.getElementById('clear-search');
-        const searchStats = document.getElementById('search-stats');
-        const noResults = document.getElementById('no-results');
-        const categoryCards = document.querySelectorAll('.category-card');
-        const scrollTopBtn = document.getElementById('scroll-top');
-        const modal = document.getElementById('nurse-modal');
-
-        // Initialize
-        renderFAQs();
-
-        // Event Listeners
-        searchInput.addEventListener('input', handleSearch);
-        clearSearchBtn.addEventListener('click', clearSearch);
+document.addEventListener('DOMContentLoaded', function() {
+    var faqContainer = document.getElementById('faq-container');
+    if (!faqContainer) return;
+    
+    renderFAQs();
+    
+    function renderFAQs() {
+        var filtered = faqData;
         
-        categoryCards.forEach(card => {
-            card.addEventListener('click', () => selectCategory(card.dataset.category));
-        });
-
-        window.addEventListener('scroll', () => {
-            if (window.scrollY > 300) {
-                scrollTopBtn.classList.add('visible');
-            } else {
-                scrollTopBtn.classList.remove('visible');
-            }
-        });
-
-        scrollTopBtn.addEventListener('click', () => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-
-        // Functions
-        function renderFAQs() {
-            let filtered = faqData;
-
-            // Filter by category
-            if (currentCategory !== 'all') {
-                filtered = filtered.filter(item => item.category === currentCategory);
-            }
-
-            // Filter by search
-            if (searchTerm) {
-                const term = searchTerm.toLowerCase();
-                filtered = filtered.filter(item => 
-                    item.question.toLowerCase().includes(term) || 
-                    item.answer.toLowerCase().includes(term)
-                );
-            }
-
-            // Update stats
-            if (searchTerm) {
-                searchStats.textContent = `Found ${filtered.length} result${filtered.length !== 1 ? 's' : ''} for "${searchTerm}"`;
-            } else if (currentCategory !== 'all') {
-                const catName = categoryCards.find(c => c.dataset.category === currentCategory).querySelector('h3').textContent;
-                searchStats.textContent = `Showing ${filtered.length} questions in ${catName}`;
-            } else {
-                searchStats.textContent = `Showing all ${faqData.length} questions`;
-            }
-
-            // Show/hide no results
-            if (filtered.length === 0) {
-                faqContainer.innerHTML = '';
-                noResults.classList.remove('hidden');
-                noResults.classList.add('no-results');
-                setTimeout(() => noResults.classList.remove('no-results'), 500);
-            } else {
-                noResults.classList.add('hidden');
-                
-                faqContainer.innerHTML = filtered.map((item, index) => `
-                    <div class="accordion-item glass-card rounded-2xl overflow-hidden fade-in" style="animation-delay: ${index * 0.05}s">
-                        <button class="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-white/50 transition-colors" onclick="toggleAccordion(${item.id})">
-                            <div class="flex items-center gap-4 pr-4">
-                                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-50 to-teal-50 flex items-center justify-center text-blue-500 flex-shrink-0">
-                                    <i class="fas ${item.icon}"></i>
-                                </div>
-                                <h3 class="font-semibold text-slate-800 text-base md:text-lg leading-snug">${highlightText(item.question)}</h3>
-                            </div>
-                            <i class="fas fa-chevron-down accordion-icon text-slate-400 flex-shrink-0" id="icon-${item.id}"></i>
-                        </button>
-                        <div class="accordion-content" id="content-${item.id}">
-                            <div class="px-6 pb-6 pt-2 border-t border-slate-100">
-                                <div class="pl-14 text-slate-600 leading-relaxed space-y-2">
-                                    ${highlightText(item.answer)}
-                                </div>
-                                <div class="pl-14 mt-4 flex items-center gap-2 text-xs text-slate-400">
-                                    <i class="fas fa-tag"></i>
-                                    <span class="capitalize">${item.category}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
+        if (currentCategory !== 'all') {
+            filtered = filtered.filter(function(item) { return item.category === currentCategory; });
+        }
+        
+        if (searchTerm) {
+            filtered = filtered.filter(function(item) { 
+                return item.question.toLowerCase().indexOf(searchTerm.toLowerCase()) !== -1 || 
+                       item.answer.toLowerCase().indexOf(searchTerm.toLowerCase()) !== -1;
+            });
+        }
+        
+        var noResults = document.getElementById('no-results');
+        
+        if (filtered.length === 0) {
+            faqContainer.innerHTML = '';
+            if (noResults) noResults.classList.remove('hidden');
+        } else {
+            if (noResults) noResults.classList.add('hidden');
+            faqContainer.innerHTML = '';
+            
+            for (var i = 0; i < filtered.length; i++) {
+                var item = filtered[i];
+                var faqItem = document.createElement('div');
+                faqItem.className = 'border border-slate-200 rounded-xl overflow-hidden';
+                faqItem.innerHTML = '<div class="faq-question bg-white p-4 cursor-pointer flex justify-between items-center" onclick="toggleFaq(' + item.id + ')">' +
+                    '<span class="font-medium text-slate-800">' + item.question + '</span>' +
+                    '<i class="fas fa-chevron-down text-slate-400 transition-transform" id="icon-' + item.id + '"></i></div>' +
+                    '<div class="faq-answer bg-slate-50 p-4 hidden" id="answer-' + item.id + '">' +
+                    '<p class="text-slate-600">' + item.answer + '</p></div>';
+                faqContainer.appendChild(faqItem);
             }
         }
-
-        function toggleAccordion(id) {
-            const content = document.getElementById(`content-${id}`);
-            const icon = document.getElementById(`icon-${id}`);
-            
-            // Close all others (optional - remove if you want multiple open)
-            document.querySelectorAll('.accordion-content').forEach(el => {
-                if (el.id !== `content-${id}`) {
-                    el.classList.remove('open');
-                }
-            });
-            document.querySelectorAll('.accordion-icon').forEach(el => {
-                if (el.id !== `icon-${id}`) {
-                    el.classList.remove('rotate');
-                }
-            });
-            
-            // Toggle current
-            content.classList.toggle('open');
-            icon.classList.toggle('rotate');
+        
+        var statsEl = document.getElementById('search-stats');
+        if (statsEl) {
+            if (searchTerm || currentCategory !== 'all') {
+                statsEl.textContent = 'Found ' + filtered.length + ' question' + (filtered.length !== 1 ? 's' : '');
+            } else {
+                statsEl.textContent = 'Showing all questions';
+            }
         }
-
-        function selectCategory(category) {
-            currentCategory = category;
+    }
+    
+    window.toggleFaq = function(id) {
+        var answer = document.getElementById('answer-' + id);
+        var icon = document.getElementById('icon-' + id);
+        
+        if (answer.classList.contains('hidden')) {
+            answer.classList.remove('hidden');
+            icon.classList.add('rotate-180');
+        } else {
+            answer.classList.add('hidden');
+            icon.classList.remove('rotate-180');
+        }
+    };
+    
+    // Category click handlers
+    var categoryCards = document.querySelectorAll('.category-card');
+    for (var i = 0; i < categoryCards.length; i++) {
+        categoryCards[i].addEventListener('click', function() {
+            currentCategory = this.getAttribute('data-category');
             
-            // Update UI
-            categoryCards.forEach(card => {
-                if (card.dataset.category === category) {
-                    card.classList.add('active');
-                } else {
-                    card.classList.remove('active');
-                }
-            });
+            var cats = document.querySelectorAll('.category-card');
+            for (var j = 0; j < cats.length; j++) {
+                cats[j].classList.remove('active', 'bg-amber-500', 'text-white');
+                cats[j].classList.add('bg-slate-100', 'text-slate-600');
+            }
+            
+            this.classList.add('active', 'bg-amber-500', 'text-white');
+            this.classList.remove('bg-slate-100', 'text-slate-600');
             
             renderFAQs();
-            
-            // Scroll to FAQ section on mobile
-            if (window.innerWidth < 768) {
-                faqContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }
-
-        function handleSearch(e) {
+        });
+    }
+    
+    var searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.addEventListener('input', function(e) {
             searchTerm = e.target.value.trim();
             
-            if (searchTerm) {
-                clearSearchBtn.classList.remove('hidden');
-            } else {
-                clearSearchBtn.classList.add('hidden');
+            var clearBtn = document.getElementById('clear-search');
+            if (clearBtn) {
+                if (searchTerm) {
+                    clearBtn.classList.remove('hidden');
+                } else {
+                    clearBtn.classList.add('hidden');
+                }
             }
             
             renderFAQs();
-        }
-
-        function clearSearch() {
+        });
+    }
+    
+    window.clearSearchFaq = function() {
+        if (searchInput) {
             searchInput.value = '';
             searchTerm = '';
-            clearSearchBtn.classList.add('hidden');
-            renderFAQs();
-            searchInput.focus();
         }
-
-        function highlightText(text) {
-            if (!searchTerm) return text;
-            
-            const regex = new RegExp(`(${searchTerm})`, 'gi');
-            return text.replace(regex, '<span class="highlight">$1</span>');
+        var clearBtn = document.getElementById('clear-search');
+        if (clearBtn) clearBtn.classList.add('hidden');
+        renderFAQs();
+    };
+    
+    // First Aid Data
+    var firstAidData = {
+        'Emergency Contacts': { title: 'Emergency Contacts', content: '<h3 class="text-lg font-bold mb-2">Important Numbers</h3><ul class="list-disc pl-5 space-y-1"><li><strong>Campus Security:</strong> 911-1111</li><li><strong>University Health Center:</strong> 911-2222</li><li><strong>Local Hospital:</strong> 911-3333</li><li><strong>Poison Control:</strong> 1-800-222-1222</li></ul>' },
+        'Wound Care': { title: 'Wound Care', content: '<h3 class="text-lg font-bold mb-2">Cleaning a Minor Wound</h3><ol class="list-decimal pl-5 space-y-1"><li>Wash hands thoroughly</li><li>Apply gentle pressure to stop bleeding</li><li>Rinse with clean water</li><li>Apply antibiotic ointment</li><li>Cover with a bandage</li></ol>' },
+        'Burns & Scalds': { title: 'Burns & Scalds', content: '<h3 class="text-lg font-bold mb-2">Immediate Care</h3><ol class="list-decimal pl-5 space-y-1"><li>Cool with running water for 10-20 minutes</li><li>Do NOT apply ice, butter, or toothpaste</li><li>Cover with sterile bandage</li><li>Take pain relievers if needed</li></ol>' },
+        'Eye Injuries': { title: 'Eye Injuries', content: '<h3 class="text-lg font-bold mb-2">Handling Minor Irritations</h3><ol class="list-decimal pl-5 space-y-1"><li>Wash hands before touching eye</li><li>Flush with clean water for 15 minutes</li><li>Do NOT rub the eye</li><li>Remove contact lenses</li></ol>' },
+        'CPR & AED': { title: 'CPR & AED', content: '<h3 class="text-lg font-bold mb-2">Basic CPR</h3><ol class="list-decimal pl-5 space-y-1"><li>Check responsiveness</li><li>Call 911</li><li>Push hard and fast (100/min)</li><li>Give 2 breaths after 30 compressions</li></ol>' },
+        'Choking': { title: 'Choking', content: '<h3 class="text-lg font-bold mb-2">Heimlich Maneuver</h3><ol class="list-decimal pl-5 space-y-1"><li>Stand behind person</li><li>Make fist above navel</li><li>Grasp fist and give quick thrusts</li><li>Repeat until object is expelled</li></ol>' }
+    };
+    
+    window.openFirstAidModal = function(title) {
+        var modal = document.getElementById('firstaid-modal');
+        var content = document.getElementById('firstaid-modal-content');
+        var item = firstAidData[title];
+        
+        if (item) {
+            content.innerHTML = '<h2 class="text-2xl font-bold text-slate-800 mb-4">' + item.title + '</h2>' + item.content;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
         }
-
-        function resetFilters() {
-            currentCategory = 'all';
-            searchTerm = '';
-            searchInput.value = '';
-            clearSearchBtn.classList.add('hidden');
-            
-            categoryCards.forEach(card => {
-                card.classList.remove('active');
-                if (card.dataset.category === 'all') {
-                    card.classList.add('active');
-                }
-            });
-            
-            renderFAQs();
+    };
+    
+    window.closeFirstAidModal = function() {
+        var modal = document.getElementById('firstaid-modal');
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    };
+    
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            var modal = document.getElementById('firstaid-modal');
+            if (modal && modal.classList.contains('flex')) {
+                closeFirstAidModal();
+            }
         }
-
-        function openModal() {
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function closeModal() {
-            modal.classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        // First Aid Modal Functions
-        function openFirstAidModal(title) {
-            const firstAidItem = firstAidData.find(item => item.title === title);
-            if (!firstAidItem) return;
-
-            const modal = document.getElementById('firstaid-modal');
-            const modalContent = document.getElementById('firstaid-modal-content');
-
-            modalContent.innerHTML = `
-                <div class="text-center mb-6">
-                    <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <i data-lucide="${firstAidItem.icon}" class="w-8 h-8"></i>
-                    </div>
-                    <h2 class="text-2xl font-bold text-slate-800 mb-2">${firstAidItem.title}</h2>
-                    <p class="text-slate-500">${firstAidItem.description}</p>
-                </div>
-
-                <div class="mb-8">
-                    <h3 class="text-lg font-semibold text-slate-800 mb-4">Overview</h3>
-                    <p class="text-slate-600 leading-relaxed">${firstAidItem.details.overview}</p>
-                </div>
-
-                <div class="mb-8">
-                    <h3 class="text-lg font-semibold text-slate-800 mb-4">Steps to Follow</h3>
-                    <ol class="space-y-3">
-                        ${firstAidItem.details.steps.map((step, index) => `
-                            <li class="flex items-start gap-3">
-                                <div class="w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 mt-0.5">
-                                    ${index + 1}
-                                </div>
-                                <span class="text-slate-600 leading-relaxed">${step}</span>
-                            </li>
-                        `).join('')}
-                    </ol>
-                </div>
-
-                <div>
-                    <h3 class="text-lg font-semibold text-slate-800 mb-4">Important Tips</h3>
-                    <ul class="space-y-2">
-                        ${firstAidItem.details.tips.map(tip => `
-                            <li class="flex items-start gap-3">
-                                <i class="fas fa-check-circle text-emerald-600 mt-1 flex-shrink-0"></i>
-                                <span class="text-slate-600 leading-relaxed">${tip}</span>
-                            </li>
-                        `).join('')}
-                    </ul>
-                </div>
-
-                <div class="mt-8 pt-6 border-t border-slate-100">
-                    <p class="text-sm text-slate-500 text-center">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        This information is for educational purposes only. Always seek professional medical help in emergencies.
-                    </p>
-                </div>
-            `;
-
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-            lucide.createIcons(); // Recreate icons in modal
-        }
-
-        function closeFirstAidModal() {
-            const modal = document.getElementById('firstaid-modal');
-            modal.style.display = 'none';
-            document.body.style.overflow = '';
-        }
-
-        // Close modal on outside click and Escape key
-        document.addEventListener('DOMContentLoaded', () => {
-            const modal = document.getElementById('firstaid-modal');
-            if (modal) {
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
-                        closeFirstAidModal();
-                    }
-                });
-            }
-        });
-
-        // Close modal on Escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                const modal = document.getElementById('firstaid-modal');
-                if (modal && modal.style.display === 'flex') {
-                    closeFirstAidModal();
-                }
-            }
-        });
-
-        // Close modal on outside click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closeModal();
-            }
-        });
-
-        // Close modal on Escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.classList.contains('active')) {
-                closeModal();
-            }
-        });
-            
- // Questions Data
-            const questions = [
-                { id: 1, text: "I feel overwhelmed by school tasks.", category: "academic_stress" },
-                { id: 2, text: "I find it hard to relax.", category: "relaxation" },
-                { id: 3, text: "I feel tired even after sleeping.", category: "fatigue" },
-                { id: 4, text: "I worry about many things.", category: "anxiety" },
-                { id: 5, text: "I overthink situations.", category: "rumination" },
-                { id: 6, text: "I feel nervous without clear reason.", category: "general_anxiety" },
-                { id: 7, text: "I feel sad or down.", category: "mood" },
-                { id: 8, text: "I lose interest in activities I enjoy.", category: "anhedonia" },
-                { id: 9, text: "I feel confident handling problems.", category: "self_efficacy", reverse: true },
-                { id: 10, text: "I feel supported by friends or family.", category: "social_support", reverse: true }
-            ];
-
-            // Response labels for AI context
-            const responseLabels = ["Never", "Rarely", "Sometimes", "Often", "Always"];
-
-            // State
-            let currentQuestion = 0;
-            let answers = new Array(10).fill(null);
-            
-            // API Key - In production, use backend proxy (this is for demonstration only)
-            // Note: Never expose API keys directly in frontend code
-            const GROQ_API_KEY = '';
-
-            // DOM Elements
-            const questionText = document.getElementById('question-text');
-            const currentNum = document.getElementById('current-num');
-            const totalNum = document.getElementById('total-num');
-            const progressBar = document.getElementById('progress-bar');
-            const progressPercent = document.getElementById('progress-percent');
-            const prevBtn = document.getElementById('prev-btn');
-            const nextBtn = document.getElementById('next-btn');
-            const submitBtn = document.getElementById('submit-btn');
-            const optionsContainer = document.getElementById('options-container');
-            const questionnaireSection = document.getElementById('questionnaire-section');
-            const loadingSection = document.getElementById('loading-section');
-            const resultsSection = document.getElementById('results-section');
-            const aiResultContent = document.getElementById('ai-result-content');
-
-            // Initialize
-            totalNum.textContent = questions.length;
-            renderQuestion();
-
-            // Event Listeners
-            prevBtn.addEventListener('click', goPrevious);
-            nextBtn.addEventListener('click', goNext);
-            submitBtn.addEventListener('click', submitAssessment);
-
-            // Radio button change listeners
-            document.querySelectorAll('input[name="answer"]').forEach(radio => {
-                radio.addEventListener('change', handleAnswer);
-            });
-
-            function renderQuestion() {
-                const q = questions[currentQuestion];
-                questionText.textContent = q.text;
-                currentNum.textContent = currentQuestion + 1;
-            
-                const progress = ((currentQuestion + 1) / questions.length) * 100;
-                progressBar.style.width = `${progress}%`;
-                progressPercent.textContent = `${Math.round(progress)}%`;
-
-                document.querySelectorAll('input[name="answer"]').forEach(radio => {
-                    radio.checked = false;
-                    radio.closest('.option-card').classList.remove('selected');
-                });
-
-                if (answers[currentQuestion] !== null) {
-                    const radio = document.querySelector(`input[value="${answers[currentQuestion]}"]`);
-                    if (radio) {
-                        radio.checked = true;
-                        radio.closest('.option-card').classList.add('selected');
-                    }
-                }
-
-                updateButtons();
-
-                const container = document.getElementById('question-container');
-                container.classList.remove('slide-up');
-                void container.offsetWidth;
-                container.classList.add('slide-up');
-            }
-
-            function handleAnswer(e) {
-                const value = parseInt(e.target.value);
-                answers[currentQuestion] = value;
-            
-                document.querySelectorAll('.option-card').forEach(card => {
-                    card.classList.remove('selected');
-                });
-                e.target.closest('.option-card').classList.add('selected');
-
-                updateButtons();
-            }
-
-            function updateButtons() {
-                if (currentQuestion === 0) {
-                    prevBtn.disabled = true;
-                    prevBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                } else {
-                    prevBtn.disabled = false;
-                    prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-
-                const hasAnswer = answers[currentQuestion] !== null;
-                const isLast = currentQuestion === questions.length - 1;
-
-                if (isLast) {
-                    nextBtn.classList.add('hidden');
-                    submitBtn.classList.remove('hidden');
-                    if (hasAnswer) {
-                        submitBtn.disabled = false;
-                        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else {
-                        submitBtn.disabled = true;
-                        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                    }
-                } else {
-                    nextBtn.classList.remove('hidden');
-                    submitBtn.classList.add('hidden');
-                    if (hasAnswer) {
-                        nextBtn.disabled = false;
-                        nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else {
-                        nextBtn.disabled = true;
-                        nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                    }
-                }
-            }
-
-            function goNext() {
-                if (currentQuestion < questions.length - 1) {
-                    currentQuestion++;
-                    renderQuestion();
-                }
-            }
-
-            function goPrevious() {
-                if (currentQuestion > 0) {
-                    currentQuestion--;
-                    renderQuestion();
-                }
-            }
-
-            async function submitAssessment() {
-                // Show loading
-                questionnaireSection.classList.remove('visible-section');
-                questionnaireSection.classList.add('hidden-section');
-                loadingSection.classList.remove('hidden-section');
-                loadingSection.classList.add('visible-section');
-
-                try {
-                    const result = await getAIAnalysis();
-                    displayResults(result);
-                } catch (error) {
-                    console.error("Error:", error);
-                    aiResultContent.innerHTML = `
-                        <div class="text-red-600 text-center">
-                            <i class="fas fa-exclamation-circle text-3xl mb-3"></i>
-                            <p>Sorry, we couldn't generate your report. Please try again.</p>
-                            <button onclick="resetAssessment()" class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg">Try Again</button>
-                        </div>
-                    `;
-                    loadingSection.classList.remove('visible-section');
-                    loadingSection.classList.add('hidden-section');
-                    resultsSection.classList.remove('hidden-section');
-                    resultsSection.classList.add('visible-section');
-                }
-            }
-
-            async function getAIAnalysis() {
-                // Prepare the assessment data
-                const assessmentData = questions.map((q, index) => ({
-                    question: q.text,
-                    category: q.category,
-                    answer: responseLabels[answers[index]],
-                    score: answers[index],
-                    reverse: q.reverse || false
-                }));
-
-                const prompt = `
-You are a compassionate mental health wellness assistant analyzing a student's questionnaire responses.
-
-ASSESSMENT DATA:
-${JSON.stringify(assessmentData, null, 2)}
-
-SCORING GUIDE:
-- Questions 1-8: Higher scores (0-4) indicate more stress/distress
-- Questions 9-10: Reverse scored (higher is better, lower indicates concern)
-
-You are generating a mental wellness result summary.
-
-Your output MUST strictly follow this exact format and spacing:
-
-Title on the first line (no emojis).
-
-One blank line.
-
-A short 2–3 sentence paragraph.
-
-One blank line.
-
-Section header: What this means:
-
-One blank line.
-
-3 bullet points using "-" (dash + space).
-
-One blank line.
-
-Section header: Gentle suggestions:
-
-One blank line.
-
-2 bullet points using "-" (dash + space).
-
-One blank line.
-
-One short encouragement sentence on its own line.
-
-STYLE RULES:
-
-Calm and supportive tone.
-
-No emojis.
-
-No clinical or diagnostic language.
-
-No mention of scores or categories.
-
-No extra sections.
-
-Keep sentences short and easy to read.
-
-Do NOT add explanations before or after the result.
-
-Make it feel clean and not overwhelming.
-
-The structure must look exactly like this:
-
-Title Here
-
-Short supportive paragraph (2–3 sentences).
-
-What this means:
-
-First insight.
-
-Second insight.
-
-Third insight.
-
-Gentle suggestions:
-
-First simple suggestion.
-
-Second simple suggestion.
-
-Short encouragement sentence.
-
-Now generate the result based on the provided emotional indicators.`;
-
-                const response = await fetch("/api/groq", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        message: prompt
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
-                }
-
-                const data = await response.json();
-                return data.choices[0].message.content;
-            }
-
-            function displayResults(aiText) {
-                loadingSection.classList.remove('visible-section');
-                loadingSection.classList.add('hidden-section');
-                resultsSection.classList.remove('hidden-section');
-                resultsSection.classList.add('visible-section');
-
-                // Convert markdown-style headers to HTML
-                let formattedHtml = aiText
-                    .replace(/## (.*?)\n/g, '<h3>$1</h3>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/- (.*?)\n/g, '<li>$1</li>')
-                    .replace(/(<li>.*?<\/li>)+/g, '<ul>$&</ul>')
-                    .replace(/\n\n/g, '<br><br>');
-
-                aiResultContent.innerHTML = formattedHtml;
-                
-                // Save completion to localStorage for one-time form
-                localStorage.setItem('mentalHealthCheckCompleted', 'true');
-                localStorage.setItem('mentalHealthCheckDate', new Date().toISOString());
-                
-                // Show notification with result summary
-                const resultTitle = aiText.split('\n')[0];
-                showNotification('Your mental health check is complete! Result: ' + resultTitle, 'success');
-                
-                // Show the result notification modal
-                showResultNotification(aiText);
-                
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-
-            function resetAssessment() {
-                currentQuestion = 0;
-                answers = new Array(10).fill(null);
-            
-                resultsSection.classList.remove('visible-section');
-                resultsSection.classList.add('hidden-section');
-                questionnaireSection.classList.remove('hidden-section');
-                questionnaireSection.classList.add('visible-section');
-            
-                renderQuestion();
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                
-                // Clear the completion status to allow retaking
-                localStorage.removeItem('mentalHealthCheckCompleted');
-                localStorage.removeItem('mentalHealthCheckDate');
-            }
-
-            function downloadReport() {
-                const content = document.getElementById('ai-result-content').innerText;
-                const blob = new Blob([`Mental Health Check - ${new Date().toLocaleDateString()}\n\n${content}`], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'wellness-report.txt';
-                a.click();
-                URL.revokeObjectURL(url);
-            }
-            
-            // Result Notification Modal Functions
-            function showResultNotification(aiText) {
-                const modal = document.getElementById('result-notification-modal');
-                const summaryDiv = document.getElementById('result-summary');
-                
-                // Extract key info from the AI response
-                const lines = aiText.split('\n').filter(function(line) { return line.trim(); });
-                const title = lines[0] || 'Your Wellness Report';
-                
-                // Create a summary from the response
-                let summaryHtml = '<h4 class="font-bold text-violet-800 mb-2">' + title + '</h4>';
-                
-                // Add a brief description
-                if (lines[1]) {
-                    summaryHtml += '<p class="text-sm text-violet-600">' + lines[1] + '</p>';
-                }
-                
-                summaryDiv.innerHTML = summaryHtml;
-                
-                // Show modal
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
-            
-            function closeResultNotification() {
-                const modal = document.getElementById('result-notification-modal');
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-            
-            // Global functions for button onclick handlers
-            function goPreviousQuestion() {
-                if (currentQuestion > 0) {
-                    currentQuestion--;
-                    renderQuestion();
-                    updateButtonStates();
-                }
-            }
-            
-            function goNextQuestion() {
-                if (currentQuestion < questions.length - 1 && answers[currentQuestion] !== null) {
-                    currentQuestion++;
-                    renderQuestion();
-                    updateButtonStates();
-                }
-            }
-            
-            function submitMentalHealthAssessment() {
-                // Check if last question is answered
-                if (answers[currentQuestion] === null) {
-                    showNotification('Please answer the current question before submitting.', 'error');
-                    return;
-                }
-                submitAssessment();
-            }
-            
-            function updateButtonStates() {
-                const prevBtn = document.getElementById('prev-btn');
-                const nextBtn = document.getElementById('next-btn');
-                const submitBtn = document.getElementById('submit-btn');
-                
-                // Previous button
-                if (currentQuestion === 0) {
-                    prevBtn.disabled = true;
-                    prevBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                } else {
-                    prevBtn.disabled = false;
-                    prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-                
-                const hasAnswer = answers[currentQuestion] !== null;
-                const isLast = currentQuestion === questions.length - 1;
-                
-                if (isLast) {
-                    nextBtn.classList.add('hidden');
-                    submitBtn.classList.remove('hidden');
-                    if (hasAnswer) {
-                        submitBtn.disabled = false;
-                        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else {
-                        submitBtn.disabled = true;
-                        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                    }
-                } else {
-                    nextBtn.classList.remove('hidden');
-                    submitBtn.classList.add('hidden');
-                    if (hasAnswer) {
-                        nextBtn.disabled = false;
-                        nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                    } else {
-                        nextBtn.disabled = true;
-                        nextBtn.classList.add('opacity-50', 'cursor-not-allowed');
-                    }
-                }
-            }
-            
-            // Handle answer selection
-            function selectAnswer(value) {
-                answers[currentQuestion] = value;
-                
-                // Update visual selection
-                const optionCards = document.querySelectorAll('.option-card');
-                optionCards.forEach(function(card, index) {
-                    if (index === value) {
-                        card.classList.add('selected', 'border-violet-500', 'bg-violet-50');
-                    } else {
-                        card.classList.remove('selected', 'border-violet-500', 'bg-violet-50');
-                    }
-                });
-                
-                // Update button states
-                updateButtonStates();
-            }
-            
-            // Initialize mental health questionnaire
-            function initMentalHealthQuestionnaire() {
-                // Reset state
-                currentQuestion = 0;
-                answers = new Array(10).fill(null);
-                
-                // Get DOM elements
-                const questionText = document.getElementById('question-text');
-                const currentNum = document.getElementById('current-num');
-                const totalNum = document.getElementById('total-num');
-                const progressBar = document.getElementById('progress-bar');
-                const progressPercent = document.getElementById('progress-percent');
-                const prevBtn = document.getElementById('prev-btn');
-                const nextBtn = document.getElementById('next-btn');
-                const submitBtn = document.getElementById('submit-btn');
-                const questionnaireSection = document.getElementById('questionnaire-section');
-                const loadingSection = document.getElementById('loading-section');
-                const resultsSection = document.getElementById('results-section');
-                
-                // Show questionnaire section, hide others
-                if (questionnaireSection) {
-                    questionnaireSection.classList.remove('hidden-section');
-                    questionnaireSection.classList.add('visible-section');
-                }
-                if (loadingSection) {
-                    loadingSection.classList.add('hidden-section');
-                    loadingSection.classList.remove('visible-section');
-                }
-                if (resultsSection) {
-                    resultsSection.classList.add('hidden-section');
-                    resultsSection.classList.remove('visible-section');
-                }
-                
-                // Initialize display
-                if (totalNum) totalNum.textContent = questions.length;
-                
-                // Re-attach event listeners
-                if (prevBtn) {
-                    prevBtn.onclick = function() {
-                        if (currentQuestion > 0) {
-                            currentQuestion--;
-                            renderQuestion();
-                        }
-                    };
-                }
-                if (nextBtn) {
-                    nextBtn.onclick = function() {
-                        if (currentQuestion < questions.length - 1 && answers[currentQuestion] !== null) {
-                            currentQuestion++;
-                            renderQuestion();
-                        }
-                    };
-                }
-                if (submitBtn) {
-                    submitBtn.onclick = submitAssessment;
-                }
-                
-                // Render first question
-                renderQuestion();
-            }
-
-            // Keyboard navigation
-            document.addEventListener('keydown', (e) => {
-                if (resultsSection.classList.contains('visible-section') || loadingSection.classList.contains('visible-section')) return;
-            
-                if (e.key === 'ArrowLeft' && currentQuestion > 0) {
-                    goPrevious();
-                } else if (e.key === 'ArrowRight' && currentQuestion < questions.length - 1 && answers[currentQuestion] !== null) {
-                    goNext();
-                } else if (e.key >= '1' && e.key <= '5') {
-                    const value = parseInt(e.key) - 1;
-                    const radio = document.querySelector(`input[value="${value}"]`);
-                    if (radio) {
-                        radio.checked = true;
-                        radio.dispatchEvent(new Event('change'));
-                    }
-                }
-            });
-
-            function loadChatWidget() {
-                // Prevent loading twice
-                if (document.getElementById("leadconnector-widget")) return;
-
-                const script = document.createElement("script");
-                script.id = "leadconnector-widget";
-                script.src = "https://widgets.leadconnectorhq.com/loader.js";
-                script.setAttribute(
-                    "data-resources-url",
-                    "https://widgets.leadconnectorhq.com/chat-widget/loader.js"
-                );
-                script.setAttribute("data-widget-id", "69913f5da0e96a88091fcd46");
-                script.async = true;
-
-                document.body.appendChild(script);
-            }
+    });
+    
+    // Filter event listeners
+    var statusFilter = document.getElementById('status-filter');
+    var urgencyFilter = document.getElementById('urgency-filter');
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', loadCases);
+    }
+    if (urgencyFilter) {
+        urgencyFilter.addEventListener('change', loadCases);
+    }
+});
+
+// Global functions
+window.openMode = openMode;
+window.resetView = resetView;
+window.clearSearch = clearSearch;
+window.openLogin = openLogin;
+window.closeLogin = closeLogin;
+window.loginAdmin = loginAdmin;
+window.logoutAdmin = logoutAdmin;
+window.loadAdminStats = loadAdminStats;
+window.loadCases = loadCases;
+window.updateCaseStatus = updateCaseStatus;
+window.deleteCase = deleteCase;
+window.viewCase = viewCase;

@@ -261,88 +261,158 @@
                 </div>
             </div>
 
-            <!-- Mental Health Mode -->
+            <!-- Mental Health Mode - Revamped -->
             <div id="mode-mental" class="hidden mentalPanel">
-                <div class="text-center mb-12">
+                <div class="text-center mb-8">
                     <h2 class="text-3xl md:text-4xl font-bold mb-4 text-slate-800">Mental Health Check</h2>
-                    <p class="text-lg text-slate-500">Take a quick check-in to understand your emotional well-being</p>
+                    <p class="text-lg text-slate-500">Check in with yourself - How are you feeling today?</p>
                 </div>
                 
-                <div id="questionnaire-section" class="visible-section">
-                    <div class="glass-card rounded-3xl p-8 mb-8">
-                        <div class="flex justify-between items-center mb-6">
-                            <span class="text-sm text-slate-500">Question <span id="current-num">1</span> of <span id="total-num">10</span></span>
-                            <span class="text-sm text-slate-500" id="progress-percent">10%</span>
-                        </div>
+                <!-- Mood Selection Section -->
+                <div id="mood-section" class="visible-section">
+                    <div class="glass-card rounded-3xl p-8 mb-6">
+                        <h3 class="text-xl font-semibold text-slate-800 mb-6 text-center">Select Your Current Mood</h3>
                         
-                        <div class="w-full bg-slate-100 rounded-full h-3 mb-8">
-                            <div id="progress-bar" class="bg-gradient-to-r from-violet-500 to-purple-500 h-3 rounded-full" style="width: 10%"></div>
-                        </div>
-                        
-                        <div id="question-container" class="mb-12">
-                            <h3 id="question-text" class="text-2xl font-semibold text-slate-800 mb-8">Question will appear here...</h3>
-                            
-                            <div id="options-container" class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                                <div onclick="selectAnswer(0)" class="option-card flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-200 hover:border-violet-500 transition-colors cursor-pointer">
-                                    <input type="radio" name="answer" value="0" class="sr-only">
-                                    <span class="text-sm font-medium text-slate-600">Never</span>
-                                </div>
-                                <div onclick="selectAnswer(1)" class="option-card flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-200 hover:border-violet-500 transition-colors cursor-pointer">
-                                    <input type="radio" name="answer" value="1" class="sr-only">
-                                    <span class="text-sm font-medium text-slate-600">Rarely</span>
-                                </div>
-                                <div onclick="selectAnswer(2)" class="option-card flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-200 hover:border-violet-500 transition-colors cursor-pointer">
-                                    <input type="radio" name="answer" value="2" class="sr-only">
-                                    <span class="text-sm font-medium text-slate-600">Sometimes</span>
-                                </div>
-                                <div onclick="selectAnswer(3)" class="option-card flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-200 hover:border-violet-500 transition-colors cursor-pointer">
-                                    <input type="radio" name="answer" value="3" class="sr-only">
-                                    <span class="text-sm font-medium text-slate-600">Often</span>
-                                </div>
-                                <div onclick="selectAnswer(4)" class="option-card flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-200 hover:border-violet-500 transition-colors cursor-pointer">
-                                    <input type="radio" name="answer" value="4" class="sr-only">
-                                    <span class="text-sm font-medium text-slate-600">Always</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="flex justify-between">
-                            <button id="prev-btn" onclick="goPreviousQuestion()" disabled class="px-6 py-3 rounded-xl bg-slate-100 text-slate-500 cursor-not-allowed opacity-50 transition-colors">
-                                <i class="fas fa-arrow-left mr-2"></i> Previous
+                        <div class="flex flex-wrap justify-center gap-4 mb-8">
+                            <button onclick="selectMood(1)" class="mood-btn mood-1 flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer w-28 h-28">
+                                <span class="text-4xl mb-2">😢</span>
+                                <span class="text-sm font-medium text-slate-600">Very Low</span>
                             </button>
-                            <button id="next-btn" onclick="goNextQuestion()" disabled class="px-6 py-3 rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition-colors opacity-50 cursor-not-allowed">
-                                Next <i class="fas fa-arrow-right ml-2"></i>
+                            <button onclick="selectMood(2)" class="mood-btn mood-2 flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer w-28 h-28">
+                                <span class="text-4xl mb-2">😔</span>
+                                <span class="text-sm font-medium text-slate-600">Low</span>
                             </button>
-                            <button id="submit-btn" onclick="submitMentalHealthAssessment()" class="hidden px-6 py-3 rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition-colors opacity-50 cursor-not-allowed">
-                                Submit <i class="fas fa-check ml-2"></i>
+                            <button onclick="selectMood(3)" class="mood-btn mood-3 flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer w-28 h-28">
+                                <span class="text-4xl mb-2">😐</span>
+                                <span class="text-sm font-medium text-slate-600">Neutral</span>
+                            </button>
+                            <button onclick="selectMood(4)" class="mood-btn mood-4 flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer w-28 h-28">
+                                <span class="text-4xl mb-2">🙂</span>
+                                <span class="text-sm font-medium text-slate-600">Good</span>
+                            </button>
+                            <button onclick="selectMood(5)" class="mood-btn mood-5 flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer w-28 h-28">
+                                <span class="text-4xl mb-2">😄</span>
+                                <span class="text-sm font-medium text-slate-600">Great</span>
                             </button>
                         </div>
+                        
+                        <input type="hidden" id="selected-mood" value="0">
+                    </div>
+                    
+                    <!-- Stress Level Slider -->
+                    <div class="glass-card rounded-3xl p-8 mb-6">
+                        <h3 class="text-xl font-semibold text-slate-800 mb-6 text-center">Stress Level</h3>
+                        
+                        <div class="flex items-center gap-4 mb-4">
+                            <span class="text-green-600 font-medium w-20">Low</span>
+                            <input type="range" id="stress-slider" min="1" max="10" value="5" class="flex-grow h-3 bg-gradient-to-r from-green-400 via-yellow-400 to-red-500 rounded-lg appearance-none cursor-pointer">
+                            <span class="text-red-600 font-medium w-20 text-right">High</span>
+                        </div>
+                        
+                        <div class="text-center">
+                            <span class="text-2xl font-bold text-slate-800" id="stress-value">5</span>
+                            <span class="text-slate-500">/10</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Sleep Quality -->
+                    <div class="glass-card rounded-3xl p-8 mb-6">
+                        <h3 class="text-xl font-semibold text-slate-800 mb-6 text-center">Sleep Quality (Last Night)</h3>
+                        
+                        <div class="flex flex-wrap justify-center gap-3">
+                            <button onclick="selectSleep(1)" class="sleep-btn sleep-1 px-5 py-3 rounded-xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer">
+                                <span class="text-lg">😫</span>
+                                <span class="ml-2 text-sm font-medium text-slate-600">Very Poor</span>
+                            </button>
+                            <button onclick="selectSleep(2)" class="sleep-btn sleep-2 px-5 py-3 rounded-xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer">
+                                <span class="text-lg">😔</span>
+                                <span class="ml-2 text-sm font-medium text-slate-600">Poor</span>
+                            </button>
+                            <button onclick="selectSleep(3)" class="sleep-btn sleep-3 px-5 py-3 rounded-xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer">
+                                <span class="text-lg">😐</span>
+                                <span class="ml-2 text-sm font-medium text-slate-600">Average</span>
+                            </button>
+                            <button onclick="selectSleep(4)" class="sleep-btn sleep-4 px-5 py-3 rounded-xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer">
+                                <span class="text-lg">🙂</span>
+                                <span class="ml-2 text-sm font-medium text-slate-600">Good</span>
+                            </button>
+                            <button onclick="selectSleep(5)" class="sleep-btn sleep-5 px-5 py-3 rounded-xl border-2 border-slate-200 hover:border-violet-400 hover:bg-violet-50 transition-all cursor-pointer">
+                                <span class="text-lg">😴</span>
+                                <span class="ml-2 text-sm font-medium text-slate-600">Excellent</span>
+                            </button>
+                        </div>
+                        
+                        <input type="hidden" id="selected-sleep" value="0">
+                    </div>
+                    
+                    <!-- Additional Notes -->
+                    <div class="glass-card rounded-3xl p-8 mb-6">
+                        <h3 class="text-xl font-semibold text-slate-800 mb-4 text-center">Anything you'd like to share? (Optional)</h3>
+                        <textarea id="mental-notes" placeholder="Write about how you're feeling..." class="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-violet-500 focus:border-violet-500 outline-none h-32 resize-none"></textarea>
+                    </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="text-center">
+                        <button onclick="submitMentalHealthCheck()" class="px-8 py-4 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold text-lg hover:from-violet-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105">
+                            <i class="fas fa-heart mr-2"></i> Check My Wellness
+                        </button>
                     </div>
                 </div>
                 
-                <div id="loading-section" class="hidden-section text-center py-20">
+                <!-- Loading Section -->
+                <div id="mental-loading-section" class="hidden-section text-center py-20">
                     <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-violet-500 mb-6"></div>
-                    <h3 class="text-xl font-semibold text-slate-800 mb-2">Analyzing your responses...</h3>
+                    <h3 class="text-xl font-semibold text-slate-800 mb-2">Analyzing your wellness...</h3>
                     <p class="text-slate-500">This may take a moment</p>
                 </div>
                 
-                <div id="results-section" class="hidden-section glass-card rounded-3xl p-8">
-                    <div class="text-center mb-8">
-                        <h3 class="text-2xl font-bold text-slate-800 mb-2">Your Wellness Report</h3>
-                        <p class="text-slate-500">Here's what we noticed about your emotional well-being</p>
+                <!-- Results Section -->
+                <div id="mental-results-section" class="hidden-section">
+                    <div class="glass-card rounded-3xl p-8 mb-6">
+                        <div class="text-center mb-8">
+                            <div id="result-emoji" class="text-6xl mb-4"></div>
+                            <h3 class="text-2xl font-bold text-slate-800 mb-2">Your Wellness Summary</h3>
+                            <p class="text-slate-500">Here's what we noticed about your well-being</p>
+                        </div>
+                        
+                        <div id="mental-result-content" class="prose prose-slate max-w-none mb-8 text-left">
+                            <!-- Results will appear here -->
+                        </div>
+                        
+                        <div class="flex justify-center gap-4 flex-wrap">
+                            <button onclick="retakeMentalCheck()" class="px-6 py-3 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+                                <i class="fas fa-redo mr-2"></i> Retake Check
+                            </button>
+                            <button onclick="downloadMentalReport()" class="px-6 py-3 rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition-colors">
+                                <i class="fas fa-download mr-2"></i> Download Report
+                            </button>
+                            <button onclick="resetView()" class="px-6 py-3 rounded-xl bg-teal-600 text-white hover:bg-teal-700 transition-colors">
+                                <i class="fas fa-home mr-2"></i> Back to Home
+                            </button>
+                        </div>
                     </div>
                     
-                    <div id="ai-result-content" class="prose prose-slate max-w-none mb-8 text-left">
-                        <!-- AI-generated results will appear here -->
-                    </div>
-                    
-                    <div class="flex justify-center gap-4">
-                        <button onclick="resetAssessment()" class="px-6 py-3 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
-                            <i class="fas fa-redo mr-2"></i> Retake Assessment
-                        </button>
-                        <button onclick="downloadReport()" class="px-6 py-3 rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition-colors">
-                            <i class="fas fa-download mr-2"></i> Download Report
-                        </button>
+                    <!-- Resources Section -->
+                    <div class="glass-card rounded-3xl p-8">
+                        <h4 class="text-lg font-bold text-slate-800 mb-4">Helpful Resources</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <a href="#" class="flex items-center gap-3 p-4 rounded-xl bg-violet-50 hover:bg-violet-100 transition-colors">
+                                <i class="fas fa-phone text-violet-600"></i>
+                                <span class="text-slate-700">Campus Counseling: 123-456-7890</span>
+                            </a>
+                            <a href="#" class="flex items-center gap-3 p-4 rounded-xl bg-teal-50 hover:bg-teal-100 transition-colors">
+                                <i class="fas fa-users text-teal-600"></i>
+                                <span class="text-slate-700">Support Groups</span>
+                            </a>
+                            <a href="#" class="flex items-center gap-3 p-4 rounded-xl bg-amber-50 hover:bg-amber-100 transition-colors">
+                                <i class="fas fa-book text-amber-600"></i>
+                                <span class="text-slate-700">Mental Health Articles</span>
+                            </a>
+                            <a href="#" class="flex items-center gap-3 p-4 rounded-xl bg-rose-50 hover:bg-rose-100 transition-colors">
+                                <i class="fas fa-first-aid text-rose-600"></i>
+                                <span class="text-slate-700">Crisis Helpline: 988</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
