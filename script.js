@@ -1,7 +1,3 @@
-require('dotenv').config();
-
-const GROQ_KEY = process.env.GROQ_KEY;
-
 lucide.createIcons();
 
             // View Management
@@ -446,9 +442,6 @@ function loginAdmin(event) {
             // State
             let currentQuestion = 0;
             let answers = new Array(10).fill(null);
-            
-            // API Key - In production, use environment variables or backend proxy
-            const GROQ_API_KEY = GROQ_KEY;
 
             // DOM Elements
             const questionText = document.getElementById('question-text');
@@ -597,16 +590,16 @@ function loginAdmin(event) {
             }
 
             async function getAIAnalysis() {
-                // Prepare the assessment data
-                const assessmentData = questions.map((q, index) => ({
-                    question: q.text,
-                    category: q.category,
-                    answer: responseLabels[answers[index]],
-                    score: answers[index],
-                    reverse: q.reverse || false
-                }));
+    // Prepare the assessment data
+    const assessmentData = questions.map((q, index) => ({
+        question: q.text,
+        category: q.category,
+        answer: responseLabels[answers[index]],
+        score: answers[index],
+        reverse: q.reverse || false
+    }));
 
-                const prompt = `
+    const prompt = `
 You are a compassionate mental health wellness assistant analyzing a student's questionnaire responses.
 
 ASSESSMENT DATA:
@@ -688,36 +681,22 @@ Short encouragement sentence.
 
 Now generate the result based on the provided emotional indicators.`;
 
-                const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${GROQ_API_KEY}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        model: "llama-3.3-70b-versatile",
-                        messages: [
-                            {
-                                role: "system",
-                                content: "You are a supportive mental health wellness assistant for students. Provide empathetic, practical guidance based on questionnaire responses. Never diagnose, always encourage professional help for serious concerns."
-                            },
-                            {
-                                role: "user",
-                                content: prompt
-                            }
-                        ],
-                        temperature: 0.7,
-                        max_tokens: 1500
-                    })
-                });
+    // CALL YOUR BACKEND instead of GROQ directly
+    const response = await fetch("/api/groq", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: prompt }) // send prompt to backend
+    });
 
-                if (!response.ok) {
-                    throw new Error(`API Error: ${response.status}`);
-                }
+    if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+    }
 
-                const data = await response.json();
-                return data.choices[0].message.content;
-            }
+    const data = await response.json();
+    return data.choices[0].message.content; // backend returns GROQ response
+}
 
             function displayResults(aiText) {
                 loadingSection.classList.remove('visible-section');
